@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Web Sender</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #075e54;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .status-bar {
+            background: #128c7e;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected {
+            background: #25d366;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .qr-section {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .qr-container {
+            background: #f0f0f0;
+            border-radius: 15px;
+            padding: 20px;
+            display: inline-block;
+            margin: 15px 0;
+            min-height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        #qrcode {
+            display: flex;
+            justify-content: center;
+        }
+
+        #qrcode img {
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .qr-placeholder {
+            color: #666;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .qr-placeholder i {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #25d366;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: #25d366;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #128c7e;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(37, 211, 102, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: #ff4444;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #cc0000;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .message.show {
+            display: block;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .instructions {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: #1976d2;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+            color: #555;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .loading-text {
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 WhatsApp Web Sender</h1>
+            <p>Conecta y envía mensajes fácilmente</p>
+        </div>
+
+        <div class="status-bar">
+            <span class="status-indicator" id="statusIndicator"></span>
+            <span id="statusText">Desconectado</span>
+        </div>
+
+        <div class="content">
+            <div id="messageBox" class="message"></div>
+
+            <!-- Sección QR -->
+            <div id="qrSection" class="qr-section">
+                <h3>Escanea el código QR</h3>
+                <div class="qr-container">
+                    <div id="qrcode"></div>
+                    <div id="qrPlaceholder" class="qr-placeholder">
+                        <p class="loading-text">Generando código QR...</p>
+                    </div>
+                </div>
+                <p>Abre WhatsApp en tu teléfono y escanea el código</p>
+            </div>
+
+            <!-- Sección Formulario (oculta hasta conectar) -->
+            <div id="formSection" class="form-section">
+                <h3>Enviar Mensaje</h3>
+                <form id="sendForm">
+                    <div class="form-group">
+                        <label for="phone">Número de teléfono</label>
+                        <input type="tel" id="phone" placeholder="521234567890" required>
+                        <small>Formato: código de país + número (sin espacios ni símbolos)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="message">Mensaje</label>
+                        <textarea id="messageText" placeholder="Escribe tu mensaje aquí..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="sendBtn">
+                        <span class="spinner" id="spinner"></span>
+                        <span id="btnText">Enviar Mensaje</span>
+                    </button>
+                </form>
+
+                <button id="logoutBtn" class="btn btn-secondary">
+                    Cerrar Sesión
+                </button>
+            </div>
+
+            <div class="instructions">
+                <h3>📋 Instrucciones:</h3>
+                <ol>
+                    <li>Espera a que se genere el código QR</li>
+                    <li>Abre WhatsApp en tu teléfono</li>
+                    <li>Ve a Ajustes → WhatsApp Web</li>
+                    <li>Escanea el código QR</li>
+                    <li>¡Listo! Ya puedes enviar mensajes</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let qrCodeGenerated = false;
+
+        const qrSection = document.getElementById('qrSection');
+        const formSection = document.getElementById('formSection');
+        const qrContainer = document.getElementById('qrcode');
+        const qrPlaceholder = document.getElementById('qrPlaceholder');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const messageBox = document.getElementById('messageBox');
+        const sendForm = document.getElementById('sendForm');
+        const sendBtn = document.getElementById('sendBtn');
+        const spinner = document.getElementById('spinner');
+        const btnText = document.getElementById('btnText');
+
+        function showMessage(text, type) {
+            messageBox.textContent = text;
+            messageBox.className = `message ${type} show`;
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, 5000);
+        }
+
+        function updateStatus(status, connected) {
+            statusText.textContent = status;
+            if (connected) {
+                statusIndicator.classList.add('connected');
+            } else {
+                statusIndicator.classList.remove('connected');
+            }
+        }
+
+        socket.on('qr', (qr) => {
+            qrPlaceholder.classList.add('hidden');
+            qrContainer.innerHTML = '';
+            new QRCode(qrContainer, {
+                text: qr,
+                width: 200,
+                height: 200,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            qrCodeGenerated = true;
+        });
+
+        socket.on('ready', () => {
+            qrSection.classList.add('hidden');
+            formSection.classList.add('active');
+            updateStatus('Conectado', true);
+            showMessage('¡Conectado exitosamente!', 'success');
+        });
+
+        socket.on('disconnected', () => {
+            qrSection.classList.remove('hidden');
+            formSection.classList.remove('active');
+            qrPlaceholder.classList.remove('hidden');
+            qrContainer.innerHTML = '';
+            updateStatus('Desconectado', false);
+        });
+
+        socket.on('status', (status) => {
+            statusText.textContent = status;
+        });
+
+        sendForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const phone = document.getElementById('phone').value;
+            const message = document.getElementById('messageText').value;
+
+            sendBtn.disabled = true;
+            spinner.style.display = 'block';
+            btnText.textContent = 'Enviando...';
+
+            try {
+                const response = await fetch('/api/send', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ phone, message })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('Mensaje enviado correctamente', 'success');
+                    document.getElementById('messageText').value = '';
+                } else {
+                    showMessage(data.error || 'Error al enviar mensaje', 'error');
+                }
+            } catch (error) {
+                showMessage('Error de conexión', 'error');
+            } finally {
+                sendBtn.disabled = false;
+                spinner.style.display = 'none';
+                btnText.textContent = 'Enviar Mensaje';
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            if (confirm('¿Seguro que deseas cerrar la sesión?')) {
+                try {
+                    await fetch('/api/logout', { method: 'POST' });
+                    showMessage('Sesión cerrada', 'success');
+                } catch (error) {
+                    showMessage('Error al cerrar sesión', 'error');
+                }
+            }
+        });
+
+        // Verificar estado inicial
+        fetch('/api/status')
+            .then(res => res.json())
+            .then(data => {
+                updateStatus(data.status, data.isConnected);
+                if (data.isConnected) {
+                    qrSection.classList.add('hidden');
+                    formSection.classList.add('active');
+                }
+            });
+    </script>
+</body>
+</html>
