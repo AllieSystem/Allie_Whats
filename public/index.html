@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Web Sender</title>
+    <title>WhatsApp Chat</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <style>
@@ -273,13 +273,370 @@
             color: #666;
             font-style: italic;
         }
+
+        /* Estilos para el chat */
+        .chat-container {
+            display: flex;
+            gap: 20px;
+            height: 500px;
+        }
+
+        .chat-list {
+            width: 35%;
+            border-right: 2px solid #ddd;
+            padding-right: 15px;
+            overflow-y: auto;
+        }
+
+        .chat-area {
+            width: 65%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-item {
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 8px;
+        }
+
+        .chat-item:hover {
+            background: #f0f0f0;
+        }
+
+        .chat-item.active {
+            background: #dcf8c6;
+        }
+
+        .chat-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-item-phone {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .chat-item-time {
+            font-size: 0.75rem;
+            color: #999;
+        }
+
+        .chat-item-preview {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-header {
+            padding: 15px;
+            background: #075e54;
+            color: white;
+            border-radius: 10px 10px 0 0;
+            font-weight: 600;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: #e5ddd5;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message-bubble {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 15px;
+            word-wrap: break-word;
+        }
+
+        .message-bubble.incoming {
+            background: white;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+
+        .message-bubble.outgoing {
+            background: #dcf8c6;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message-time {
+            font-size: 0.7rem;
+            color: #999;
+            text-align: right;
+            margin-top: 4px;
+        }
+
+        .message-media {
+            margin-bottom: 8px;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            background: #f5f5f5;
+        }
+
+        .message-media.image,
+        .message-media.sticker {
+            display: inline-block;
+            max-width: 100%;
+        }
+
+        .message-media.image img,
+        .message-media.sticker img {
+            max-width: 280px;
+            max-height: 280px;
+            width: auto;
+            height: auto;
+            display: block;
+            object-fit: cover;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .message-media.image img:hover,
+        .message-media.sticker img:hover {
+            transform: scale(1.02);
+        }
+
+        .message-media.video-thumbnail {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        .message-media.video-thumbnail img {
+            max-width: 280px;
+            max-height: 280px;
+            display: block;
+            object-fit: cover;
+        }
+
+        .message-media.video-thumbnail .play-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(37, 211, 102, 0.9);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        .message-media.video-thumbnail:hover .play-icon {
+            transform: translate(-50%, -50%) scale(1.1);
+            background: rgba(37, 211, 102, 1);
+        }
+
+        .message-media.audio-indicator {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 12px 16px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 180px;
+            color: white;
+        }
+
+        .message-media.audio-indicator .audio-icon {
+            font-size: 1.3rem;
+        }
+
+        .message-media.audio-indicator .audio-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .message-media.document-indicator {
+            background: #f0f2f5;
+            padding: 12px 16px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 200px;
+            max-width: 280px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .message-media.document-indicator:hover {
+            background: #e4e6eb;
+        }
+
+        .message-media.document-indicator .doc-icon {
+            font-size: 2rem;
+            color: #0084ff;
+        }
+
+        .message-media.document-indicator .doc-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-media.document-indicator .doc-name {
+            font-size: 0.85rem;
+            color: #1c1e21;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .message-media.document-indicator .doc-size {
+            font-size: 0.7rem;
+            color: #65676b;
+            margin-top: 2px;
+        }
+
+        .download-btn {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .download-btn:hover {
+            background: rgba(37, 211, 102, 0.9);
+            transform: scale(1.1);
+        }
+
+        .download-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .message-bubble.incoming .download-btn {
+            left: 8px;
+            right: auto;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 1rem;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #25d366;
+        }
+
+        .btn-send {
+            width: auto;
+            padding: 12px 20px;
+            border-radius: 25px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: #f0f0f0;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .tab-btn.active {
+            background: #25d366;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .no-chat-selected {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            background: #f5f5f5;
+            border-radius: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                flex-direction: column;
+                height: auto;
+            }
+
+            .chat-list {
+                width: 100%;
+                border-right: none;
+                border-bottom: 2px solid #ddd;
+                max-height: 200px;
+            }
+
+            .chat-area {
+                width: 100%;
+                height: 400px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📱 WhatsApp Web Sender</h1>
-            <p>Conecta y envía mensajes fácilmente</p>
+            <h1>💬 WhatsApp Chat</h1>
+            <p>Envía y recibe mensajes fácilmente</p>
         </div>
 
         <div class="status-bar">
@@ -290,36 +647,83 @@
         <div class="content">
             <div id="messageBox" class="message"></div>
 
-            <!-- Sección QR -->
+            <!-- Sección QR / Emparejamiento -->
             <div id="qrSection" class="qr-section">
-                <h3>Escanea el código QR</h3>
+                <h3>Conectar WhatsApp</h3>
                 <div class="qr-container">
                     <div id="qrcode"></div>
                     <div id="qrPlaceholder" class="qr-placeholder">
-                        <p class="loading-text">Generando código QR...</p>
+                        <p class="loading-text">Conectando...</p>
                     </div>
                 </div>
-                <p>Abre WhatsApp en tu teléfono y escanea el código</p>
+                <div id="pairingSection" style="display: none; text-align: center;">
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
+                        Ingresa este código en WhatsApp:
+                    </p>
+                    <div id="pairingCodeDisplay" style="font-size: 2rem; font-weight: bold; letter-spacing: 5px; color: #25d366; padding: 15px; background: #f5f5f5; border-radius: 10px; margin: 10px 0;">
+                    </div>
+                    <p style="font-size: 0.8rem; color: #999;">
+                        WhatsApp → Ajustes → Dispositivos vinculados → Vincular dispositivo
+                    </p>
+                </div>
+                <p id="qrInstructions">Esperando conexión...</p>
             </div>
 
             <!-- Sección Formulario (oculta hasta conectar) -->
             <div id="formSection" class="form-section">
-                <h3>Enviar Mensaje</h3>
-                <form id="sendForm">
-                    <div class="form-group">
-                        <label for="phone">Número de teléfono</label>
-                        <input type="tel" id="phone" placeholder="521234567890" required>
-                        <small>Formato: código de país + número (sin espacios ni símbolos)</small>
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="newMessage">Nuevo Mensaje</button>
+                    <button class="tab-btn" data-tab="conversations">Conversaciones</button>
+                </div>
+
+                <!-- Tab Nuevo Mensaje -->
+                <div id="newMessage" class="tab-content active">
+                    <h3>Enviar Nuevo Mensaje</h3>
+                    <form id="sendForm">
+                        <div class="form-group">
+                            <label for="phone">Número de teléfono</label>
+                            <input type="tel" id="phone" placeholder="521234567890" required>
+                            <small>Formato: código de país + número (sin espacios ni símbolos)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="message">Mensaje</label>
+                            <textarea id="messageText" placeholder="Escribe tu mensaje aquí..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="sendBtn">
+                            <span class="spinner" id="spinner"></span>
+                            <span id="btnText">Enviar Mensaje</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Tab Conversaciones -->
+                <div id="conversations" class="tab-content">
+                    <div class="chat-container">
+                        <!-- Lista de chats -->
+                        <div class="chat-list" id="chatList">
+                            <div class="empty-state">No hay conversaciones aún</div>
+                        </div>
+
+                        <!-- Área de chat -->
+                        <div class="chat-area" id="chatArea">
+                            <div class="no-chat-selected" id="noChatSelected">
+                                <p>Selecciona una conversación para ver los mensajes</p>
+                            </div>
+
+                            <div id="activeChat" style="display: none; height: 100%;">
+                                <div class="chat-header" id="chatHeader">
+                                    Selecciona un chat
+                                </div>
+                                <div class="messages-container" id="messagesContainer"></div>
+                                <div class="chat-input-area">
+                                    <input type="text" class="chat-input" id="chatInput" placeholder="Escribe un mensaje...">
+                                    <button class="btn btn-primary btn-send" id="chatSendBtn">Enviar</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="message">Mensaje</label>
-                        <textarea id="messageText" placeholder="Escribe tu mensaje aquí..." required></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary" id="sendBtn">
-                        <span class="spinner" id="spinner"></span>
-                        <span id="btnText">Enviar Mensaje</span>
-                    </button>
-                </form>
+                </div>
 
                 <button id="logoutBtn" class="btn btn-secondary">
                     Cerrar Sesión
@@ -333,8 +737,9 @@
                     <li>Abre WhatsApp en tu teléfono</li>
                     <li>Ve a Ajustes → WhatsApp Web</li>
                     <li>Escanea el código QR</li>
-                    <li>¡Listo! Ya puedes enviar mensajes</li>
+                    <li>¡Listo! Ya puedes enviar y recibir mensajes</li>
                 </ol>
+                <p><strong>💬 Chat:</strong> Ve a la pestaña "Conversaciones" para ver tus chats activos y responder mensajes.</p>
             </div>
         </div>
     </div>
@@ -374,6 +779,7 @@
 
         socket.on('qr', (qr) => {
             qrPlaceholder.classList.add('hidden');
+            document.getElementById('pairingSection').style.display = 'none';
             qrContainer.innerHTML = '';
             new QRCode(qrContainer, {
                 text: qr,
@@ -383,7 +789,16 @@
                 colorLight: '#ffffff',
                 correctLevel: QRCode.CorrectLevel.H
             });
+            document.getElementById('qrInstructions').textContent = 'Escanea el código QR con tu WhatsApp';
             qrCodeGenerated = true;
+        });
+
+        socket.on('pairing_code', (data) => {
+            qrPlaceholder.classList.add('hidden');
+            qrContainer.innerHTML = '';
+            document.getElementById('pairingSection').style.display = 'block';
+            document.getElementById('pairingCodeDisplay').textContent = data.code;
+            document.getElementById('qrInstructions').textContent = 'O ingresa el código en WhatsApp → Dispositivos vinculados';
         });
 
         socket.on('ready', () => {
@@ -398,11 +813,15 @@
             formSection.classList.remove('active');
             qrPlaceholder.classList.remove('hidden');
             qrContainer.innerHTML = '';
+            document.getElementById('pairingSection').style.display = 'none';
             updateStatus('Desconectado', false);
         });
 
         socket.on('status', (status) => {
             statusText.textContent = status;
+            if (status === 'Esperando código...' || status === 'Esperando emparejamiento...') {
+                qrSection.classList.remove('hidden');
+            }
         });
 
         sendForm.addEventListener('submit', async (e) => {
@@ -429,6 +848,20 @@
                 if (data.success) {
                     showMessage('Mensaje enviado correctamente', 'success');
                     document.getElementById('messageText').value = '';
+
+                    // Cambiar a la pestaña de conversaciones y abrir el chat
+                    const phoneClean = data.phone || phone.replace(/[^0-9]/g, '');
+
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.querySelector('[data-tab="conversations"]').classList.add('active');
+                    document.getElementById('conversations').classList.add('active');
+
+                    // Abrir el chat después de un breve delay
+                    setTimeout(() => {
+                        openChat(phoneClean);
+                        loadChats();
+                    }, 500);
                 } else {
                     showMessage(data.error || 'Error al enviar mensaje', 'error');
                 }
@@ -452,6 +885,452 @@
             }
         });
 
+        // Sistema de Tabs
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabId = btn.dataset.tab;
+
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+
+                btn.classList.add('active');
+                document.getElementById(tabId).classList.add('active');
+
+                if (tabId === 'conversations') {
+                    loadChats();
+                }
+            });
+        });
+
+        // Sistema de Chat
+        let currentChat = null;
+        let chatsData = [];
+
+        async function loadChats() {
+            try {
+                const response = await fetch('/api/chats');
+                chatsData = await response.json();
+                renderChatList();
+            } catch (error) {
+                console.error('Error cargando chats:', error);
+            }
+        }
+
+        function updateOrAddChat(chat) {
+            const normalizePhone = (phone) => phone?.toString().replace(/\D/g, '') || phone;
+            const chatNormalized = normalizePhone(chat.phone);
+            
+            const existingIndex = chatsData.findIndex(c => normalizePhone(c.phone) === chatNormalized);
+            const chatSummary = {
+                phone: chat.phone,
+                name: chat.name,
+                lastMessage: chat.lastMessage,
+                messageCount: chat.messages.length
+            };
+
+            if (existingIndex >= 0) {
+                chatsData[existingIndex] = chatSummary;
+            } else {
+                chatsData.unshift(chatSummary);
+            }
+
+            chatsData.sort((a, b) => (b.lastMessage?.timestamp || 0) - (a.lastMessage?.timestamp || 0));
+            renderChatList();
+        }
+
+        function renderChatList() {
+            const chatList = document.getElementById('chatList');
+
+            if (chatsData.length === 0) {
+                chatList.innerHTML = '<div class="empty-state">No hay conversaciones aún</div>';
+                return;
+            }
+
+            chatList.innerHTML = chatsData.map(chat => {
+                const preview = chat.lastMessage ? chat.lastMessage.text.substring(0, 30) + '...' : 'Sin mensajes';
+                const time = chat.lastMessage ? new Date(chat.lastMessage.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+                const isActive = currentChat === chat.phone ? 'active' : '';
+
+                return `
+                    <div class="chat-item ${isActive}" data-phone="${chat.phone}">
+                        <div class="chat-item-header">
+                            <span class="chat-item-phone">${chat.phone}</span>
+                            <span class="chat-item-time">${time}</span>
+                        </div>
+                        <div class="chat-item-preview">${preview}</div>
+                    </div>
+                `;
+            }).join('');
+
+            // Agregar event listeners
+            chatList.querySelectorAll('.chat-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const phone = item.dataset.phone;
+                    openChat(phone);
+                });
+            });
+        }
+
+        async function openChat(phone) {
+            // Normalizar número antes de guardar
+            currentChat = phone.replace(/\D/g, '');
+            document.getElementById('noChatSelected').style.display = 'none';
+            document.getElementById('activeChat').style.display = 'flex';
+            document.getElementById('activeChat').style.flexDirection = 'column';
+
+            document.getElementById('chatHeader').textContent = `Chat con: ${currentChat}`;
+
+            // Cargar mensajes
+            await loadMessages(currentChat);
+
+            // Actualizar UI
+            renderChatList();
+        }
+
+        function openChatWithData(phone, chatData) {
+            currentChat = phone;
+            document.getElementById('noChatSelected').style.display = 'none';
+            document.getElementById('activeChat').style.display = 'flex';
+            document.getElementById('activeChat').style.flexDirection = 'column';
+
+            const displayName = chatData.name && chatData.name !== phone ? chatData.name : phone;
+            document.getElementById('chatHeader').textContent = `Chat con: ${displayName}`;
+            
+            renderMessages(chatData.messages);
+            renderChatList();
+            
+            setTimeout(() => {
+                loadMessages(phone);
+            }, 500);
+            
+            setTimeout(() => {
+                loadMessages(phone);
+            }, 4000);
+        }
+
+        async function loadMessages(phone) {
+            try {
+                const normalizedPhone = phone.replace(/\D/g, '');
+                const response = await fetch(`/api/chats/${normalizedPhone}/messages`);
+                const data = await response.json();
+                renderMessages(data.messages);
+            } catch (error) {
+                console.error('Error cargando mensajes:', error);
+            }
+        }
+
+        function renderMessages(messages) {
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = '';
+
+            messages.forEach(msg => {
+                const bubble = document.createElement('div');
+                bubble.className = `message-bubble ${msg.isOutgoing ? 'outgoing' : 'incoming'}`;
+                
+                let mediaHtml = '';
+                if (msg.mediaThumbnail) {
+                    const mimeType = msg.mediaMimeType || 'image/jpeg';
+                    const isVideo = msg.mediaType === 'video';
+                    const isDocument = msg.mediaType === 'document';
+                    
+                    if (isVideo) {
+                        mediaHtml = `
+                            <div class="message-media video-thumbnail">
+                                <div class="play-icon">▶</div>
+                                <img src="data:${mimeType};base64,${msg.mediaThumbnail}" alt="Video thumbnail" />
+                                <button class="download-btn" onclick="downloadMedia('${msg.id}')" title="Descargar">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        `;
+                    } else if (msg.mediaType === 'audio') {
+                        mediaHtml = `
+                            <div class="message-media audio-indicator">
+                                <span class="audio-icon">🎵</span>
+                                <span class="audio-label">Audio de WhatsApp</span>
+                                <button class="download-btn" onclick="downloadMedia('${msg.id}')" title="Descargar" style="position:relative;bottom:auto;right:auto;margin-left:auto;">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        `;
+                    } else if (isDocument) {
+                        mediaHtml = `
+                            <div class="message-media document-indicator" onclick="downloadMedia('${msg.id}')">
+                                <span class="doc-icon">📄</span>
+                                <div class="doc-info">
+                                    <div class="doc-name">${escapeHtml(msg.mediaFileName || 'Documento')}</div>
+                                    <div class="doc-size">Haz clic para descargar</div>
+                                </div>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#0084ff" stroke-width="2" style="width:20px;height:20px;flex-shrink:0;">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                            </div>
+                        `;
+                    } else if (msg.mediaType === 'sticker') {
+                        mediaHtml = `
+                            <div class="message-media sticker">
+                                <img src="data:${mimeType};base64,${msg.mediaThumbnail}" alt="Sticker" />
+                                <button class="download-btn" onclick="downloadMedia('${msg.id}')" title="Descargar">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        mediaHtml = `
+                            <div class="message-media image">
+                                <img src="data:${mimeType};base64,${msg.mediaThumbnail}" alt="Imagen" onclick="viewImage(this)" style="cursor:pointer;" />
+                                <button class="download-btn" onclick="downloadMedia('${msg.id}')" title="Descargar">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
+                
+                bubble.innerHTML = `
+                    ${mediaHtml}
+                    ${msg.text ? `<div>${escapeHtml(msg.text)}</div>` : ''}
+                    <div class="message-time">${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                `;
+                container.appendChild(bubble);
+            });
+
+            // Scroll al final
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function downloadMedia(messageId) {
+            try {
+                const response = await fetch('/api/download-media', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messageId })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    showMessage(error.error || 'Error al descargar', 'error');
+                    return;
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let fileName = 'archivo';
+                if (contentDisposition) {
+                    const fileNameMatch = contentDisposition.match(/filename="?([^";]+)"?/);
+                    if (fileNameMatch) fileName = fileNameMatch[1];
+                }
+                
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                showMessage('Archivo descargado correctamente', 'success');
+            } catch (error) {
+                console.error('Error descargando:', error);
+                showMessage('Error al descargar archivo', 'error');
+            }
+        }
+
+        function viewImage(imgElement) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+            modal.innerHTML = `<img src="${imgElement.src}" style="max-width:95%;max-height:95%;object-fit:contain;border-radius:8px;">`;
+            modal.onclick = () => modal.remove();
+            document.body.appendChild(modal);
+        }
+
+        // Enviar mensaje desde chat
+        async function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+
+            if (!message || !currentChat) return;
+
+            try {
+                const response = await fetch(`/api/chats/${currentChat}/send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    input.value = '';
+                    // El mensaje llegará por socket, solo actualizamos la lista
+                    loadChats();
+                } else {
+                    showMessage(data.error || 'Error al enviar mensaje', 'error');
+                }
+            } catch (error) {
+                showMessage('Error de conexión', 'error');
+            }
+        }
+
+        document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendChatMessage();
+        });
+
+        // Escuchar mensajes en tiempo real
+        socket.on('new_message', (data) => {
+            console.log('📩 Nuevo mensaje recibido:', data);
+            console.log('   currentChat:', currentChat, 'data.phone:', data.phone);
+
+            updateOrAddChat(data.chat);
+
+            // Función para normalizar números (solo dígitos)
+            const normalizePhone = (phone) => phone?.toString().replace(/\D/g, '') || phone;
+            
+            const currentNormalized = normalizePhone(currentChat);
+            const dataPhoneNormalized = normalizePhone(data.phone);
+
+            // Verificar si el mensaje es para el chat actual abierto
+            // Comparar números normalizados para evitar problemas con formatos diferentes
+            if (currentChat && data.phone && (currentNormalized === dataPhoneNormalized)) {
+                console.log('   -> Actualizando chat actual');
+                // Agregar mensaje directamente al contenedor para actualización inmediata
+                const container = document.getElementById('messagesContainer');
+                const msg = data.message;
+                
+                const bubble = document.createElement('div');
+                bubble.className = `message-bubble ${msg.isOutgoing ? 'outgoing' : 'incoming'}`;
+                
+                let mediaHtml = '';
+                if (msg.mediaThumbnail) {
+                    const mimeType = msg.mediaMimeType || 'image/jpeg';
+                    const isVideo = msg.mediaType === 'video';
+                    const isDocument = msg.mediaType === 'document';
+                    
+                    if (isVideo) {
+                        mediaHtml = `
+                            <div class="message-media video-thumbnail">
+                                <div class="play-icon">▶</div>
+                                <img src="data:${mimeType};base64,${msg.mediaThumbnail}" alt="Video thumbnail" />
+                                <button class="download-btn" onclick="downloadMedia('${msg.id}')" title="Descargar">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        `;
+                    } else if (msg.mediaType === 'audio') {
+                        mediaHtml = `
+                            <div class="message-media audio-indicator">
+                                <span class="audio-icon">🎵</span>
+                                <span class="audio-label">Audio de WhatsApp</span>
+                                <button class="download-btn" onclick="downloadMedia('${msg.id}')" title="Descargar" style="position:relative;bottom:auto;right:auto;margin-left:auto;">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        `;
+                    } else if (isDocument) {
+                        mediaHtml = `
+                            <div class="message-media document-indicator" onclick="downloadMedia('${msg.id}')">
+                                <span class="doc-icon">📄</span>
+                                <div class="doc-info">
+                                    <div class="doc-name">${escapeHtml(msg.mediaFileName || 'Documento')}</div>
+                                    <div class="doc-size">Haz clic para descargar</div>
+                                </div>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#0084ff" stroke-width="2" style="width:20px;height:20px;flex-shrink:0;">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                            </div>
+                        `;
+                    } else if (msg.mediaType === 'sticker') {
+                        mediaHtml = `
+                            <div class="message-media sticker">
+                                <img src="data:${mimeType};base64,${msg.mediaThumbnail}" alt="Sticker" />
+                                <button class="download-btn" onclick="downloadMedia('${msg.id}')" title="Descargar">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        mediaHtml = `
+                            <div class="message-media image">
+                                <img src="data:${mimeType};base64,${msg.mediaThumbnail}" alt="Imagen" onclick="viewImage(this)" style="cursor:pointer;" />
+                                <button class="download-btn" onclick="downloadMedia('${msg.id}')" title="Descargar">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
+                
+                bubble.innerHTML = `
+                    ${mediaHtml}
+                    ${msg.text ? `<div>${escapeHtml(msg.text)}</div>` : ''}
+                    <div class="message-time">${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                `;
+                container.appendChild(bubble);
+                container.scrollTop = container.scrollHeight;
+            }
+        });
+
+        // Escuchar actualizaciones de chats
+        socket.on('chat_updated', (chat) => {
+            updateOrAddChat(chat);
+        });
+
+        // Escuchar cuando se cargan los chats existentes
+        socket.on('chats_loaded', (data) => {
+            console.log(`Chats cargados: ${data.count}`);
+            if (document.getElementById('conversations').classList.contains('active')) {
+                loadChats();
+            }
+        });
+
         // Verificar estado inicial
         fetch('/api/status')
             .then(res => res.json())
@@ -460,6 +1339,7 @@
                 if (data.isConnected) {
                     qrSection.classList.add('hidden');
                     formSection.classList.add('active');
+                    loadChats();
                 }
             });
     </script>

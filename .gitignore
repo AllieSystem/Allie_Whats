@@ -1,2 +1,6 @@
 # Node
+/.agents
+/.claude
+/auth/*
 /node_modules
+/docs

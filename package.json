@@ -1,16 +1,21 @@
 {
-  "name": "whatsapp-web-sender",
+  "name": "whatsapp-baileys-sender",
   "version": "1.0.0",
-  "description": "Aplicación web para enviar mensajes por WhatsApp Web",
+  "description": "Aplicación web para enviar mensajes por WhatsApp usando Baileys",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.9",
     "express": "^4.18.2",
-    "whatsapp-web.js": "^1.26.0",
+    "jimp": "^1.6.1",
+    "pino": "^8.0.0",
     "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.34.5",
     "socket.io": "^4.7.2"
   },
   "devDependencies": {

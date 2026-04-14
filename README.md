@@ -1,12 +1,14 @@
-# WhatsApp Web Sender
+# WhatsApp Chat
 
-Aplicación web para conectar con WhatsApp Web escaneando un código QR y enviar mensajes a números específicos.
+Aplicación web para conectar con WhatsApp Web escaneando un código QR, enviar mensajes y chatear bidireccionalmente con contactos.
 
 ## Características
 
 - Escaneo de QR para conectar con WhatsApp Web
 - Interfaz web moderna y responsive
 - Envío de mensajes a cualquier número
+- **Recepción de mensajes en tiempo real**
+- **Interfaz de chat bidireccional** con historial de conversaciones
 - Estado de conexión en tiempo real
 - Persistencia de sesión (no requiere escanear QR cada vez)
 
@@ -48,14 +50,23 @@ La aplicación estará disponible en `http://localhost:3000`
 3. Abre WhatsApp en tu teléfono
 4. Ve a **Ajustes** → **WhatsApp Web** → **Vincular dispositivo**
 5. Escanea el código QR que aparece en la pantalla
-6. Una vez conectado, ingresa el número de teléfono y mensaje
-7. Presiona "Enviar Mensaje"
+6. Una vez conectado, puedes:
+   - **Nuevo Mensaje**: Ingresa un número y envía un mensaje
+   - **Conversaciones**: Ve tus chats activos y responde mensajes recibidos
+
+### Funcionalidades del Chat
+
+- **Nuevo Mensaje**: Envía mensajes a cualquier número de WhatsApp
+- **Conversaciones**: Lista de chats activos con vista previa del último mensaje
+- **Chat en tiempo real**: Recibe y responde mensajes al instante
+- **Historial**: Mantiene el historial de mensajes de la sesión actual
 
 ### Formato del número
 
 El número debe incluir el código de país seguido del número telefónico sin espacios ni símbolos:
 
-- ✅ Correcto: `521234567890` (México)
+- ✅ Correcto: `52
+1234567890` (México)
 - ✅ Correcto: `34600123456` (España)
 - ❌ Incorrecto: `+52 123 456 7890`
 - ❌ Incorrecto: `123-456-7890`
