@@ -167,101 +167,116 @@ async function initBaileys() {
             let mediaDirectPath = null;
             let mediaFileLength = null;
 
-            if (msgObj.conversation) {
-                text = msgObj.conversation;
-            } else if (msgObj.extendedTextMessage) {
-                text = msgObj.extendedTextMessage.text;
-            } else if (msgObj.imageMessage) {
-                let caption = msgObj.imageMessage.caption;
-                if (caption) {
-                    try { caption = Buffer.from(caption, 'latin1').toString('utf8'); } catch (e) {}
-                }
-                text = caption || '[Imagen]';
-                mediaType = 'image';
-                mediaMimeType = msgObj.imageMessage.mimetype;
-                mediaUrl = msgObj.imageMessage.url;
-                mediaKey = msgObj.imageMessage.mediaKey;
-                mediaDirectPath = msgObj.imageMessage.directPath;
-                mediaFileLength = msgObj.imageMessage.fileLength;
-                if (msgObj.imageMessage.jpegThumbnail) {
-                    mediaThumbnail = Buffer.from(msgObj.imageMessage.jpegThumbnail).toString('base64');
-                }
-            } else if (msgObj.videoMessage) {
-                let caption = msgObj.videoMessage.caption;
-                if (caption) {
-                    try { caption = Buffer.from(caption, 'latin1').toString('utf8'); } catch (e) {}
-                }
-                text = caption || '[Video]';
-                mediaType = 'video';
-                mediaMimeType = msgObj.videoMessage.mimetype;
-                mediaUrl = msgObj.videoMessage.url;
-                mediaKey = msgObj.videoMessage.mediaKey;
-                mediaDirectPath = msgObj.videoMessage.directPath;
-                mediaFileLength = msgObj.videoMessage.fileLength;
-                if (msgObj.videoMessage.jpegThumbnail) {
-                    mediaThumbnail = Buffer.from(msgObj.videoMessage.jpegThumbnail).toString('base64');
-                }
-            } else if (msgObj.documentMessage) {
-                let docCaption = msgObj.documentMessage.caption;
-                let fileName = msgObj.documentMessage.fileName || msgObj.documentMessage.fileName;
+    if (msgObj.conversation) {
+        text = msgObj.conversation;
+    } else if (msgObj.extendedTextMessage) {
+        text = msgObj.extendedTextMessage.text;
+    } else if (msgObj.imageMessage) {
+        let caption = msgObj.imageMessage.caption;
+        if (caption) {
+            try { caption = Buffer.from(caption, 'latin1').toString('utf8'); } catch (e) {}
+        }
+        text = caption || '[Imagen]';
+        mediaType = 'image';
+        mediaMimeType = msgObj.imageMessage.mimetype;
+        mediaUrl = msgObj.imageMessage.url;
+        mediaKey = msgObj.imageMessage.mediaKey;
+        mediaDirectPath = msgObj.imageMessage.directPath;
+        mediaFileLength = msgObj.imageMessage.fileLength;
+        if (msgObj.imageMessage.jpegThumbnail) {
+            mediaThumbnail = Buffer.from(msgObj.imageMessage.jpegThumbnail).toString('base64');
+        }
+        
+        if (!mediaFileName) {
+            const ext = mediaMimeType?.split('/')[1] || 'jpg';
+            mediaFileName = `image-${Date.now()}.${ext}`;
+        }
+    } else if (msgObj.videoMessage) {
+        let caption = msgObj.videoMessage.caption;
+        if (caption) {
+            try { caption = Buffer.from(caption, 'latin1').toString('utf8'); } catch (e) {}
+        }
+        text = caption || '[Video]';
+        mediaType = 'video';
+        mediaMimeType = msgObj.videoMessage.mimetype;
+        mediaUrl = msgObj.videoMessage.url;
+        mediaKey = msgObj.videoMessage.mediaKey;
+        mediaDirectPath = msgObj.videoMessage.directPath;
+        mediaFileLength = msgObj.videoMessage.fileLength;
+        if (msgObj.videoMessage.jpegThumbnail) {
+            mediaThumbnail = Buffer.from(msgObj.videoMessage.jpegThumbnail).toString('base64');
+        }
+        
+        if (!mediaFileName) {
+            const ext = mediaMimeType?.split('/')[1] || 'mp4';
+            mediaFileName = `video-${Date.now()}.${ext}`;
+        }
+    } else if (msgObj.documentMessage) {
+        let docCaption = msgObj.documentMessage.caption;
+        let fileName = msgObj.documentMessage.fileName || msgObj.documentMessage.fileName;
+        
+        if (!fileName && msgObj.documentMessage) {
+            console.log('   📄 DocMessage keys:', Object.keys(msgObj.documentMessage));
+        }
+        
+        function fixEncoding(str) {
+            if (!str) return str;
+            const original = str;
+            try {
+                const latin1 = Buffer.from(str, 'latin1').toString('utf8');
                 
-                if (!fileName && msgObj.documentMessage) {
-                    console.log('   📄 DocMessage keys:', Object.keys(msgObj.documentMessage));
-                }
+                const validAccents = ['á','é','í','ó','ú','ñ','Á','É','Í','Ó','Ú','Ñ','ü','Ü','¿','¡','€'];
+                const hasValidAccents = latin1.split('').some(c => validAccents.includes(c));
+                const hasInvalidChars = latin1.includes('�');
                 
-                function fixEncoding(str) {
-                    if (!str) return str;
-                    const original = str;
-                    try {
-                        const latin1 = Buffer.from(str, 'latin1').toString('utf8');
-                        
-                        const validAccents = ['á','é','í','ó','ú','ñ','Á','É','Í','Ó','Ú','Ñ','ü','Ü','¿','¡','€'];
-                        const hasValidAccents = latin1.split('').some(c => validAccents.includes(c));
-                        const hasInvalidChars = latin1.includes('�');
-                        
-                        if (hasInvalidChars) return original;
-                        if (hasValidAccents) return latin1;
-                        
-                        return original;
-                    } catch (e) { return original; }
-                }
+                if (hasInvalidChars) return original;
+                if (hasValidAccents) return latin1;
                 
-                if (docCaption) docCaption = fixEncoding(docCaption);
-                if (fileName) fileName = fixEncoding(fileName);
-                
-                console.log('   📎 Nombre archivo:', fileName, typeof fileName);
-                
-                text = docCaption || fileName || '[Documento]';
-                mediaType = 'document';
-                mediaMimeType = msgObj.documentMessage.mimetype;
-                mediaFileName = fileName;
-                mediaUrl = msgObj.documentMessage.url;
-                mediaKey = msgObj.documentMessage.mediaKey;
-                mediaDirectPath = msgObj.documentMessage.directPath;
-                mediaFileLength = msgObj.documentMessage.fileLength;
-            } else if (msgObj.audioMessage) {
-                text = '[Audio]';
-                mediaType = 'audio';
-                mediaMimeType = msgObj.audioMessage.mimetype;
-                mediaUrl = msgObj.audioMessage.url;
-                mediaKey = msgObj.audioMessage.mediaKey;
-                mediaDirectPath = msgObj.audioMessage.directPath;
-                mediaFileLength = msgObj.audioMessage.fileLength;
-            } else if (msgObj.stickerMessage) {
-                text = '[Sticker]';
-                mediaType = 'sticker';
-                mediaUrl = msgObj.stickerMessage.url;
-                mediaKey = msgObj.stickerMessage.mediaKey;
-                mediaDirectPath = msgObj.stickerMessage.directPath;
-                mediaFileLength = msgObj.stickerMessage.fileLength;
-                if (msgObj.stickerMessage.jpegThumbnail) {
-                    mediaThumbnail = Buffer.from(msgObj.stickerMessage.jpegThumbnail).toString('base64');
-                }
-            }
+                return original;
+            } catch (e) { return original; }
+        }
+        
+        if (docCaption) docCaption = fixEncoding(docCaption);
+        if (fileName) fileName = fixEncoding(fileName);
+        
+        console.log('   📎 Nombre archivo:', fileName, typeof fileName);
+        
+        text = docCaption || fileName || '[Documento]';
+        mediaType = 'document';
+        mediaMimeType = msgObj.documentMessage.mimetype;
+        mediaFileName = fileName;
+        mediaUrl = msgObj.documentMessage.url;
+        mediaKey = msgObj.documentMessage.mediaKey;
+        mediaDirectPath = msgObj.documentMessage.directPath;
+        mediaFileLength = msgObj.documentMessage.fileLength;
+        
+        if (!mediaFileName) {
+            const ext = mediaMimeType?.split('/')[1] || 'bin';
+            mediaFileName = `document-${Date.now()}.${ext}`;
+        }
+    } else if (msgObj.audioMessage) {
+        text = '[Audio]';
+        mediaType = 'audio';
+        mediaMimeType = msgObj.audioMessage.mimetype;
+        mediaUrl = msgObj.audioMessage.url;
+        mediaKey = msgObj.audioMessage.mediaKey;
+        mediaDirectPath = msgObj.audioMessage.directPath;
+        mediaFileLength = msgObj.audioMessage.fileLength;
+        
+        console.log('   🎤 Audio message received:', { mediaUrl, mediaKey, mediaDirectPath, mediaMimeType });
+        
+        if (!mediaFileName) {
+            // Limpiar el mimetype para obtener solo la extensión
+            let ext = mediaMimeType?.split(';')[0]?.split('/')[1] || 'ogg';
+            mediaFileName = `audio-${Date.now()}.${ext}`;
+        }
+    }
 
-            if (!text) text = JSON.stringify(msgObj).substring(0, 30);
+    if (!text) text = JSON.stringify(msgObj).substring(0, 30);
 
             console.log(`📨 Mensaje ${msg.key.fromMe ? 'saliente' : 'entrante'} - JID: ${jid} -> jidClean: ${jidClean}`);
+            console.log(`   📝 Tipo de mensaje:`, Object.keys(msgObj));
+            console.log(`   🎭 mediaType: ${mediaType}, text: ${text}, mediaFileName: ${mediaFileName}, mediaUrl: ${mediaUrl ? 'YES' : 'NO'}`);
             console.log(`   Mapeo actual:`, Array.from(jidToPhone.entries()));
 
             // Buscar el chat correcto
@@ -372,6 +387,25 @@ async function initBaileys() {
             }
 
             io.emit('new_message', { phone: chatKey, message: msgData, chat });
+
+            console.log(`📤 Emitiendo new_message con phone: ${chatKey} (original: ${senderPhone || jidClean})`);
+            
+            // También buscar si hay algún chat existente que coincida con el teléfono normalizado
+            const chatKeyNormalized = normalizePhone(chatKey);
+            let foundChatKey = null;
+            
+            for (const [existingPhone] of chats.entries()) {
+                if (normalizePhone(existingPhone) === chatKeyNormalized) {
+                    foundChatKey = existingPhone;
+                    break;
+                }
+            }
+            
+            // Si encontramos un chat existente con número diferente, también emitir con ese número
+            if (foundChatKey && foundChatKey !== chatKey) {
+                console.log(`   📱 Emitiendo también para chat existente: ${foundChatKey}`);
+                io.emit('new_message', { phone: foundChatKey, message: msgData, chat: chats.get(foundChatKey) });
+            }
 
             if (!msg.key.fromMe) {
                 console.log(`📩 Mensaje de ${chatKey}: ${text.substring(0, 30)}`);

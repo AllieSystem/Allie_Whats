@@ -454,6 +454,7 @@
             gap: 10px;
             min-width: 180px;
             color: white;
+            position: relative;
         }
 
         .message-media.audio-indicator .audio-icon {
@@ -463,6 +464,26 @@
         .message-media.audio-indicator .audio-label {
             font-size: 0.85rem;
             font-weight: 500;
+            flex: 1;
+        }
+
+        .message-media.audio-indicator .download-btn {
+            position: absolute !important;
+            right: 8px !important;
+            top: 50% !important;
+            bottom: auto !important;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+        }
+
+        .message-media.audio-indicator .download-btn:hover {
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        .message-media.audio-indicator .download-btn svg {
+            width: 16px;
+            height: 16px;
         }
 
         .message-media.document-indicator {
@@ -1093,14 +1114,30 @@
             container.innerHTML = '';
 
             messages.forEach(msg => {
+                console.log('📨 Rendering message:', { id: msg.id, mediaType: msg.mediaType, mediaFileName: msg.mediaFileName });
+                
                 const bubble = document.createElement('div');
                 bubble.className = `message-bubble ${msg.isOutgoing ? 'outgoing' : 'incoming'}`;
                 
                 let mediaHtml = '';
                 const isDocument = msg.mediaType === 'document';
                 
-                // Mostrar documentos sin thumbnail (cualquier tipo de archivo)
-                if (isDocument && !msg.mediaThumbnail) {
+                if (isAudio) {
+                    mediaHtml = `
+                        <div class="message-media audio-indicator">
+                            <span class="audio-icon">🎵</span>
+                            <span class="audio-label">${escapeHtml(msg.mediaFileName || 'Audio de WhatsApp')}</span>
+                            <button class="download-btn" onclick="downloadMedia('${msg.id}')" title="Descargar" style="position:relative;bottom:auto;right:auto;margin-left:auto;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                    console.log('   ✅ Generated audio HTML');
+                } else if (isDocument && !msg.mediaThumbnail) {
                     const fileExt = (msg.mediaFileName || '').split('.').pop().toLowerCase();
                     let docIcon = '📎';
                     if (['pdf'].includes(fileExt)) docIcon = '📕';
@@ -1396,7 +1433,7 @@
 
         // Escuchar mensajes en tiempo real
         socket.on('new_message', (data) => {
-            console.log('📩 Nuevo mensaje recibido:', data);
+            console.log('📩 Nuevo mensaje recibido:', { phone: data.phone, mediaType: data.message.mediaType, mediaFileName: data.message.mediaFileName });
             console.log('   currentChat:', currentChat, 'data.phone:', data.phone);
 
             updateOrAddChat(data.chat);
@@ -1414,15 +1451,34 @@
                 // Agregar mensaje directamente al contenedor para actualización inmediata
                 const container = document.getElementById('messagesContainer');
                 const msg = data.message;
+                console.log('🎵 Processing audio message:', msg.mediaType, 'isAudio:', msg.mediaType === 'audio');
+                console.log('🎵 Type of mediaType:', typeof msg.mediaType);
                 
                 const bubble = document.createElement('div');
                 bubble.className = `message-bubble ${msg.isOutgoing ? 'outgoing' : 'incoming'}`;
                 
                 let mediaHtml = '';
                 const isDocument = msg.mediaType === 'document';
+                const isAudio = msg.mediaType === 'audio';
                 
-                // Mostrar documentos sin thumbnail (cualquier tipo de archivo)
-                if (isDocument && !msg.mediaThumbnail) {
+                console.log('   🎵 Debug - mediaType:', msg.mediaType, 'isDocument:', isDocument, 'isAudio:', isAudio);
+                
+                if (isAudio) {
+                    mediaHtml = `
+                        <div class="message-media audio-indicator">
+                            <span class="audio-icon">🎵</span>
+                            <span class="audio-label">${escapeHtml(msg.mediaFileName || 'Audio de WhatsApp')}</span>
+                            <button class="download-btn" onclick="downloadMedia('${msg.id}')" title="Descargar" style="position:relative;bottom:auto;right:auto;margin-left:auto;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                    console.log('   ✅ Generated audio HTML');
+                } else if (isDocument && !msg.mediaThumbnail) {
                     const fileExt = (msg.mediaFileName || '').split('.').pop().toLowerCase();
                     let docIcon = '📎';
                     if (['pdf'].includes(fileExt)) docIcon = '📕';
