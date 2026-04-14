@@ -172,7 +172,11 @@ async function initBaileys() {
             } else if (msgObj.extendedTextMessage) {
                 text = msgObj.extendedTextMessage.text;
             } else if (msgObj.imageMessage) {
-                text = msgObj.imageMessage.caption || '[Imagen]';
+                let caption = msgObj.imageMessage.caption;
+                if (caption) {
+                    try { caption = Buffer.from(caption, 'latin1').toString('utf8'); } catch (e) {}
+                }
+                text = caption || '[Imagen]';
                 mediaType = 'image';
                 mediaMimeType = msgObj.imageMessage.mimetype;
                 mediaUrl = msgObj.imageMessage.url;
@@ -183,7 +187,11 @@ async function initBaileys() {
                     mediaThumbnail = Buffer.from(msgObj.imageMessage.jpegThumbnail).toString('base64');
                 }
             } else if (msgObj.videoMessage) {
-                text = msgObj.videoMessage.caption || '[Video]';
+                let caption = msgObj.videoMessage.caption;
+                if (caption) {
+                    try { caption = Buffer.from(caption, 'latin1').toString('utf8'); } catch (e) {}
+                }
+                text = caption || '[Video]';
                 mediaType = 'video';
                 mediaMimeType = msgObj.videoMessage.mimetype;
                 mediaUrl = msgObj.videoMessage.url;
@@ -194,10 +202,39 @@ async function initBaileys() {
                     mediaThumbnail = Buffer.from(msgObj.videoMessage.jpegThumbnail).toString('base64');
                 }
             } else if (msgObj.documentMessage) {
-                text = msgObj.documentMessage.fileName || '[Documento]';
+                let docCaption = msgObj.documentMessage.caption;
+                let fileName = msgObj.documentMessage.fileName || msgObj.documentMessage.fileName;
+                
+                if (!fileName && msgObj.documentMessage) {
+                    console.log('   📄 DocMessage keys:', Object.keys(msgObj.documentMessage));
+                }
+                
+                function fixEncoding(str) {
+                    if (!str) return str;
+                    const original = str;
+                    try {
+                        const latin1 = Buffer.from(str, 'latin1').toString('utf8');
+                        
+                        const validAccents = ['á','é','í','ó','ú','ñ','Á','É','Í','Ó','Ú','Ñ','ü','Ü','¿','¡','€'];
+                        const hasValidAccents = latin1.split('').some(c => validAccents.includes(c));
+                        const hasInvalidChars = latin1.includes('�');
+                        
+                        if (hasInvalidChars) return original;
+                        if (hasValidAccents) return latin1;
+                        
+                        return original;
+                    } catch (e) { return original; }
+                }
+                
+                if (docCaption) docCaption = fixEncoding(docCaption);
+                if (fileName) fileName = fixEncoding(fileName);
+                
+                console.log('   📎 Nombre archivo:', fileName, typeof fileName);
+                
+                text = docCaption || fileName || '[Documento]';
                 mediaType = 'document';
                 mediaMimeType = msgObj.documentMessage.mimetype;
-                mediaFileName = msgObj.documentMessage.fileName;
+                mediaFileName = fileName;
                 mediaUrl = msgObj.documentMessage.url;
                 mediaKey = msgObj.documentMessage.mediaKey;
                 mediaDirectPath = msgObj.documentMessage.directPath;
@@ -525,6 +562,8 @@ app.post('/api/download-media', async (req, res) => {
             return res.status(400).json({ success: false, error: 'El mensaje no tiene medios' });
         }
 
+        console.log('   ⬇️ Descarga - mediaFileName:', message.mediaFileName);
+
         const mediaMessageTypes = {
             'image': 'imageMessage',
             'video': 'videoMessage', 
@@ -549,13 +588,15 @@ app.post('/api/download-media', async (req, res) => {
             }
         };
 
-        try {
+try {
             const buffer = await downloadMediaMessage(mockMessage, 'buffer', {});
             const ext = extensionForMediaMessage(mockMessage.message);
-            const fileName = message.mediaFileName || `media-${message.id}.${ext}`;
+            let fileName = message.mediaFileName || `media-${message.id}.${ext}`;
+            
+            const safeFileName = fileName.replace(/"/g, '""');
 
-            res.setHeader('Content-Type', message.mediaMimeType || 'application/octet-stream');
-            res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+            res.setHeader('Content-Type', `${message.mediaMimeType || 'application/octet-stream'}; charset=utf-8`);
+            res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"; filename*=utf-8''${encodeURIComponent(fileName)}`);
             res.send(buffer);
         } catch (downloadError) {
             console.error('❌ Error en descarga de media:', downloadError.message);
@@ -572,10 +613,12 @@ app.post('/api/download-media', async (req, res) => {
                     );
                     
                     const ext = extensionForMediaMessage(mockMessage.message);
-                    const fileName = message.mediaFileName || `media-${message.id}.${ext}`;
+                    let fileName = message.mediaFileName || `media-${message.id}.${ext}`;
                     
-                    res.setHeader('Content-Type', message.mediaMimeType || 'application/octet-stream');
-                    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+                    const safeFileName = fileName.replace(/"/g, '""');
+                    
+                    res.setHeader('Content-Type', `${message.mediaMimeType || 'application/octet-stream'}; charset=utf-8`);
+                    res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"; filename*=utf-8''${encodeURIComponent(fileName)}`);
                     res.send(Buffer.from(buffer));
                     return;
                 } catch (retryError) {

@@ -1097,10 +1097,38 @@
                 bubble.className = `message-bubble ${msg.isOutgoing ? 'outgoing' : 'incoming'}`;
                 
                 let mediaHtml = '';
-                if (msg.mediaThumbnail) {
+                const isDocument = msg.mediaType === 'document';
+                
+                // Mostrar documentos sin thumbnail (cualquier tipo de archivo)
+                if (isDocument && !msg.mediaThumbnail) {
+                    const fileExt = (msg.mediaFileName || '').split('.').pop().toLowerCase();
+                    let docIcon = '📎';
+                    if (['pdf'].includes(fileExt)) docIcon = '📕';
+                    else if (['xls', 'xlsx', 'csv', 'ods'].includes(fileExt)) docIcon = '📊';
+                    else if (['doc', 'docx', 'odt', 'rtf', 'txt'].includes(fileExt)) docIcon = '📝';
+                    else if (['ppt', 'pptx', 'odp'].includes(fileExt)) docIcon = '📽️';
+                    else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(fileExt)) docIcon = '📦';
+                    else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt)) docIcon = '🖼️';
+                    else if (['mp3', 'wav', 'ogg', 'm4a'].includes(fileExt)) docIcon = '🎵';
+                    else if (['mp4', 'avi', 'mov', 'mkv'].includes(fileExt)) docIcon = '🎬';
+                    
+                    mediaHtml = `
+                        <div class="message-media document-indicator" onclick="downloadMedia('${msg.id}')">
+                            <span class="doc-icon">${docIcon}</span>
+                            <div class="doc-info">
+                                <div class="doc-name">${escapeHtml(msg.mediaFileName || 'Documento')}</div>
+                                <div class="doc-size">Haz clic para descargar</div>
+                            </div>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#0084ff" stroke-width="2" style="width:20px;height:20px;flex-shrink:0;">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                        </div>
+                    `;
+                } else if (msg.mediaThumbnail) {
                     const mimeType = msg.mediaMimeType || 'image/jpeg';
                     const isVideo = msg.mediaType === 'video';
-                    const isDocument = msg.mediaType === 'document';
                     
                     if (isVideo) {
                         mediaHtml = `
@@ -1391,10 +1419,38 @@
                 bubble.className = `message-bubble ${msg.isOutgoing ? 'outgoing' : 'incoming'}`;
                 
                 let mediaHtml = '';
-                if (msg.mediaThumbnail) {
+                const isDocument = msg.mediaType === 'document';
+                
+                // Mostrar documentos sin thumbnail (cualquier tipo de archivo)
+                if (isDocument && !msg.mediaThumbnail) {
+                    const fileExt = (msg.mediaFileName || '').split('.').pop().toLowerCase();
+                    let docIcon = '📎';
+                    if (['pdf'].includes(fileExt)) docIcon = '📕';
+                    else if (['xls', 'xlsx', 'csv', 'ods'].includes(fileExt)) docIcon = '📊';
+                    else if (['doc', 'docx', 'odt', 'rtf', 'txt'].includes(fileExt)) docIcon = '📝';
+                    else if (['ppt', 'pptx', 'odp'].includes(fileExt)) docIcon = '📽️';
+                    else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(fileExt)) docIcon = '📦';
+                    else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt)) docIcon = '🖼️';
+                    else if (['mp3', 'wav', 'ogg', 'm4a'].includes(fileExt)) docIcon = '🎵';
+                    else if (['mp4', 'avi', 'mov', 'mkv'].includes(fileExt)) docIcon = '🎬';
+                    
+                    mediaHtml = `
+                        <div class="message-media document-indicator" onclick="downloadMedia('${msg.id}')">
+                            <span class="doc-icon">${docIcon}</span>
+                            <div class="doc-info">
+                                <div class="doc-name">${escapeHtml(msg.mediaFileName || 'Documento')}</div>
+                                <div class="doc-size">Haz clic para descargar</div>
+                            </div>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#0084ff" stroke-width="2" style="width:20px;height:20px;flex-shrink:0;">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                        </div>
+                    `;
+                } else if (msg.mediaThumbnail) {
                     const mimeType = msg.mediaMimeType || 'image/jpeg';
                     const isVideo = msg.mediaType === 'video';
-                    const isDocument = msg.mediaType === 'document';
                     
                     if (isVideo) {
                         mediaHtml = `
