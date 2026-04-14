@@ -540,6 +540,65 @@
             right: auto;
         }
 
+        .attach-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #075e54;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .attach-btn:hover {
+            background: #128c7e;
+            transform: scale(1.1);
+        }
+
+        .attach-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .file-preview {
+            display: none;
+            padding: 10px 15px;
+            background: #f0f0f0;
+            border-top: 1px solid #ddd;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .file-preview.has-files {
+            display: flex;
+        }
+
+        .file-preview-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .file-preview-item .remove-file {
+            cursor: pointer;
+            color: #999;
+            font-size: 1rem;
+            line-height: 1;
+        }
+
+        .file-preview-item .remove-file:hover {
+            color: #ff4444;
+        }
+
         .chat-input-area {
             display: flex;
             gap: 10px;
@@ -717,9 +776,16 @@
                                 </div>
                                 <div class="messages-container" id="messagesContainer"></div>
                                 <div class="chat-input-area">
+                                    <label class="attach-btn" for="fileInput" title="Adjuntar archivo">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                                        </svg>
+                                    </label>
+                                    <input type="file" id="fileInput" style="display: none;" multiple>
                                     <input type="text" class="chat-input" id="chatInput" placeholder="Escribe un mensaje...">
                                     <button class="btn btn-primary btn-send" id="chatSendBtn">Enviar</button>
                                 </div>
+                                <div id="filePreview" class="file-preview"></div>
                             </div>
                         </div>
                     </div>
@@ -1178,27 +1244,121 @@
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
 
-            if (!message || !currentChat) return;
+            if (!message && selectedFiles.length === 0) return;
+            if (!currentChat) return;
+
+            const sendBtn = document.getElementById('chatSendBtn');
+            const originalText = sendBtn.textContent;
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Enviando...';
 
             try {
-                const response = await fetch(`/api/chats/${currentChat}/send`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message })
-                });
+                if (selectedFiles.length > 0) {
+                    const formData = new FormData();
+                    formData.append('phone', currentChat);
+                    formData.append('message', message);
+                    
+                    selectedFiles.forEach((file, index) => {
+                        formData.append('files', file);
+                    });
 
-                const data = await response.json();
+                    const response = await fetch('/api/chats/send-with-files', {
+                        method: 'POST',
+                        body: formData
+                    });
 
-                if (data.success) {
-                    input.value = '';
-                    // El mensaje llegará por socket, solo actualizamos la lista
-                    loadChats();
+                    const data = await response.json();
+
+                    if (data.success) {
+                        input.value = '';
+                        clearFileSelection();
+                        loadChats();
+                    } else {
+                        showMessage(data.error || 'Error al enviar', 'error');
+                    }
                 } else {
-                    showMessage(data.error || 'Error al enviar mensaje', 'error');
+                    const response = await fetch(`/api/chats/${currentChat}/send`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        input.value = '';
+                        loadChats();
+                    } else {
+                        showMessage(data.error || 'Error al enviar mensaje', 'error');
+                    }
                 }
             } catch (error) {
                 showMessage('Error de conexión', 'error');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = originalText;
             }
+        }
+
+        // Manejo de archivos adjuntos
+        let selectedFiles = [];
+        const fileInput = document.getElementById('fileInput');
+        const filePreview = document.getElementById('filePreview');
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+                files.forEach(file => {
+                    if (!selectedFiles.find(f => f.name === file.name && f.size === file.size)) {
+                        selectedFiles.push(file);
+                    }
+                });
+                renderFilePreview();
+            }
+            fileInput.value = '';
+        });
+
+        function renderFilePreview() {
+            if (selectedFiles.length === 0) {
+                filePreview.classList.remove('has-files');
+                filePreview.innerHTML = '';
+                return;
+            }
+
+            filePreview.classList.add('has-files');
+            filePreview.innerHTML = selectedFiles.map((file, index) => {
+                const icon = getFileIcon(file.type);
+                const name = file.name.length > 20 ? file.name.substring(0, 17) + '...' : file.name;
+                return `
+                    <div class="file-preview-item">
+                        <span>${icon}</span>
+                        <span>${name}</span>
+                        <span class="remove-file" onclick="removeFile(${index})">×</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getFileIcon(mimeType) {
+            if (mimeType.startsWith('image/')) return '🖼️';
+            if (mimeType.startsWith('video/')) return '🎬';
+            if (mimeType.startsWith('audio/')) return '🎵';
+            if (mimeType.includes('pdf')) return '📕';
+            if (mimeType.includes('word') || mimeType.includes('document')) return '📄';
+            if (mimeType.includes('sheet') || mimeType.includes('excel')) return '📊';
+            if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return '📽️';
+            if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('tar')) return '📦';
+            return '📎';
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            renderFilePreview();
+        }
+
+        function clearFileSelection() {
+            selectedFiles = [];
+            renderFilePreview();
         }
 
         document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);

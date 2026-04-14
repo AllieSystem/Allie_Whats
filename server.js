@@ -7,16 +7,39 @@ import { fileURLToPath } from 'url';
 import { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, downloadMediaMessage, extensionForMediaMessage } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import pino from 'pino';
+import multer from 'multer';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = createServer(app);
-const io = new Server(server);
+
+// Configuración de multer para uploads
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => {
+        const uniqueSuffix = crypto.randomBytes(8).toString('hex');
+        cb(null, uniqueSuffix + '-' + file.originalname);
+    }
+});
+
+const upload = multer({ 
+    storage,
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB max
+});
 
 app.use(express.json());
 app.use(express.static('public'));
+app.use('/uploads', express.static(uploadDir));
+
+const io = new Server(server);
 
 let sock = null;
 let connectionStatus = 'Desconectado';
@@ -785,6 +808,96 @@ app.post('/api/chats/:phone/send', async (req, res) => {
         res.json({ success: true, message: 'Mensaje enviado', phone });
     } catch (error) {
         console.error('❌ Error al enviar mensaje:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/chats/send-with-files', upload.array('files', 10), async (req, res) => {
+    const phone = req.body.phone?.replace(/[^0-9]/g, '') || '';
+    const message = req.body.message || '';
+    const files = req.files || [];
+
+    if (connectionStatus !== 'Conectado') {
+        return res.status(400).json({ success: false, error: 'WhatsApp no está conectado' });
+    }
+
+    if (!phone || phone.length < 8 || phone.length > 15) {
+        return res.status(400).json({ success: false, error: 'Número de teléfono inválido' });
+    }
+
+    if (files.length === 0 && !message) {
+        return res.status(400).json({ success: false, error: 'Se requiere al menos un archivo o mensaje' });
+    }
+
+    try {
+        const jid = phoneToJid(phone);
+        console.log(`📤 Enviando mensaje con ${files.length} archivo(s) a ${jid}`);
+
+        let messageContent = {};
+
+        if (files.length === 1) {
+            const file = files[0];
+            const mimeType = file.mimetype;
+            const filePath = file.path;
+
+            if (mimeType.startsWith('image/')) {
+                messageContent = { image: { url: filePath }, caption: message };
+            } else if (mimeType.startsWith('video/')) {
+                messageContent = { video: { url: filePath }, caption: message };
+            } else if (mimeType.startsWith('audio/')) {
+                messageContent = { audio: { url: filePath } };
+            } else {
+                messageContent = { document: { url: filePath }, fileName: file.originalname, caption: message };
+            }
+        } else if (files.length > 1) {
+            messageContent = { document: { url: files[0].path }, caption: message };
+            console.log('⚠️ WhatsApp solo soporta 1 archivo, se enviará el primero');
+        } else {
+            messageContent = { text: message };
+        }
+
+        const sent = await sock.sendMessage(jid, messageContent);
+
+        if (sent?.status === 'ERROR') {
+            throw new Error('WhatsApp rechazó el mensaje');
+        }
+
+        const remoteJid = sent?.key?.remoteJid;
+        if (remoteJid) {
+            const jidClean = remoteJid.split('@')[0];
+            jidToPhone.set(phone, jidClean);
+            const normalizedPhone = phone.replace(/\D/g, '');
+            if (normalizedPhone !== phone) {
+                jidToPhone.set(normalizedPhone, jidClean);
+            }
+        }
+
+        if (!chats.has(phone)) {
+            chats.set(phone, {
+                phone,
+                name: phone,
+                messages: [],
+                lastMessage: null,
+                timestamp: Date.now()
+            });
+        }
+
+        console.log(`✅ Mensaje con archivos enviado a ${phone}`);
+        res.json({ success: true, message: 'Mensaje enviado correctamente', phone });
+
+        // Limpiar archivos subidos después de enviar
+        files.forEach(file => {
+            try {
+                if (fs.existsSync(file.path)) {
+                    fs.unlinkSync(file.path);
+                }
+            } catch (e) {
+                console.log('⚠️ Error limpiando archivo:', e.message);
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error al enviar mensaje con archivos:', error.message);
         res.status(500).json({ success: false, error: error.message });
     }
 });
