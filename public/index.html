@@ -1013,10 +1013,22 @@
         let currentChat = null;
         let chatsData = [];
 
+        // Normalizar teléfono a 10 dígitos
+        function normalizePhoneKey(phone) {
+            const digits = phone?.toString().replace(/\D/g, '') || '';
+            return digits.slice(-10);
+        }
+
         async function loadChats() {
             try {
                 const response = await fetch('/api/chats');
-                chatsData = await response.json();
+                const rawData = await response.json();
+                chatsData = rawData.map(chat => ({
+                    phone: normalizePhoneKey(chat.phone),
+                    name: chat.name || normalizePhoneKey(chat.phone),
+                    lastMessage: chat.lastMessage,
+                    messageCount: chat.messageCount || 0
+                }));
                 renderChatList();
             } catch (error) {
                 console.error('Error cargando chats:', error);
@@ -1024,15 +1036,13 @@
         }
 
         function updateOrAddChat(chat) {
-            const normalizePhone = (phone) => phone?.toString().replace(/\D/g, '') || phone;
-            const chatNormalized = normalizePhone(chat.phone);
-
-            const existingIndex = chatsData.findIndex(c => normalizePhone(c.phone) === chatNormalized);
+            const chatKey = normalizePhoneKey(chat.phone);
+            const existingIndex = chatsData.findIndex(c => normalizePhoneKey(c.phone) === chatKey);
             const chatSummary = {
-                phone: chat.phone,
-                name: chat.name,
+                phone: chatKey,
+                name: chat.name || chatKey,
                 lastMessage: chat.lastMessage,
-                messageCount: chat.messages.length
+                messageCount: chat.messages?.length || 0
             };
 
             if (existingIndex >= 0) {
@@ -1054,22 +1064,22 @@
             }
 
             chatList.innerHTML = chatsData.map(chat => {
-                const preview = chat.lastMessage ? chat.lastMessage.text.substring(0, 30) + '...' : 'Sin mensajes';
+                const preview = chat.lastMessage ? (chat.lastMessage.text || chat.lastMessage.mediaType || 'Adjunto').substring(0, 30) + '...' : 'Sin mensajes';
                 const time = chat.lastMessage ? new Date(chat.lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                 const isActive = currentChat === chat.phone ? 'active' : '';
+                const phoneDisplay = chat.phone;
 
                 return `
                     <div class="chat-item ${isActive}" data-phone="${chat.phone}">
                         <div class="chat-item-header">
-                            <span class="chat-item-phone">${chat.phone}</span>
+                            <span class="chat-item-phone">${phoneDisplay}</span>
                             <span class="chat-item-time">${time}</span>
                         </div>
-                        <div class="chat-item-preview">${preview}</div>
+                        <div class="chat-item-preview">${escapeHtml(preview)}</div>
                     </div>
                 `;
             }).join('');
 
-            // Agregar event listeners
             chatList.querySelectorAll('.chat-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const phone = item.dataset.phone;
@@ -1079,23 +1089,19 @@
         }
 
         async function openChat(phone) {
-            // Normalizar número antes de guardar
-            currentChat = phone.replace(/\D/g, '');
+            currentChat = normalizePhoneKey(phone);
             document.getElementById('noChatSelected').style.display = 'none';
             document.getElementById('activeChat').style.display = 'flex';
             document.getElementById('activeChat').style.flexDirection = 'column';
 
             document.getElementById('chatHeader').textContent = `Chat con: ${currentChat}`;
 
-            // Cargar mensajes
             await loadMessages(currentChat);
-
-            // Actualizar UI
             renderChatList();
         }
 
         function openChatWithData(phone, chatData) {
-            currentChat = phone;
+            currentChat = normalizePhoneKey(phone);
             document.getElementById('noChatSelected').style.display = 'none';
             document.getElementById('activeChat').style.display = 'flex';
             document.getElementById('activeChat').style.flexDirection = 'column';
@@ -1107,17 +1113,13 @@
             renderChatList();
 
             setTimeout(() => {
-                loadMessages(phone);
+                loadMessages(currentChat);
             }, 500);
-
-            setTimeout(() => {
-                loadMessages(phone);
-            }, 4000);
         }
 
         async function loadMessages(phone) {
             try {
-                const normalizedPhone = phone.replace(/\D/g, '');
+                const normalizedPhone = normalizePhoneKey(phone);
                 const response = await fetch(`/api/chats/${normalizedPhone}/messages`);
                 const data = await response.json();
                 renderMessages(data.messages);

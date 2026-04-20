@@ -62,6 +62,93 @@ const jidToPhone = new Map();  // Mapa de JID -> número de teléfono para vincu
 // Función helper para normalizar números de teléfono
 const normalizePhone = (p) => p?.replace(/\D/g, '') || p;
 
+// Función para normalizar clave de chat (únicamente 10 dígitos)
+const normalizePhoneKey = (phone) => {
+    const digits = phone.replace(/\D/g, '');
+    return digits.slice(-10); // Últimos 10 dígitos para clave consistente
+};
+
+// ==================== PERSISTENT STORAGE ====================
+const dataDir = path.join(__dirname, 'data');
+const chatsFilePath = path.join(dataDir, 'chats.json');
+
+function saveChats() {
+    try {
+        const chatsMap = new Map();
+        for (const [phone, chat] of chats.entries()) {
+            const key = normalizePhoneKey(phone);
+            if (!chatsMap.has(key)) {
+                chatsMap.set(key, {
+                    phone: key,
+                    name: chat.name,
+                    messages: chat.messages,
+                    lastMessage: chat.lastMessage,
+                    timestamp: chat.timestamp
+                });
+            } else {
+                const existing = chatsMap.get(key);
+                existing.messages.push(...chat.messages);
+                if (chat.timestamp > existing.timestamp) {
+                    existing.timestamp = chat.timestamp;
+                    existing.lastMessage = chat.lastMessage;
+                }
+            }
+        }
+        const chatsData = Array.from(chatsMap.values());
+        fs.writeFileSync(chatsFilePath, JSON.stringify(chatsData, null, 2), 'utf8');
+        console.log(`💾 Chats guardados: ${chatsData.length} conversaciones`);
+    } catch (error) {
+        console.error('❌ Error guardando chats:', error.message);
+    }
+}
+
+function loadChats() {
+    try {
+        if (fs.existsSync(chatsFilePath)) {
+            const data = fs.readFileSync(chatsFilePath, 'utf8');
+            const chatsData = JSON.parse(data);
+            chats.clear();
+            for (const chatData of chatsData) {
+                const key = normalizePhoneKey(chatData.phone);
+                if (chats.has(key)) {
+                    const existing = chats.get(key);
+                    const newMessages = chatData.messages || [];
+                    for (const msg of newMessages) {
+                        if (!existing.messages.find(m => m.id === msg.id)) {
+                            existing.messages.push(msg);
+                        }
+                    }
+                    if (chatData.timestamp > existing.timestamp) {
+                        existing.timestamp = chatData.timestamp;
+                        existing.lastMessage = chatData.lastMessage;
+                    }
+                } else {
+                    chats.set(key, {
+                        phone: key,
+                        name: chatData.name || key,
+                        messages: chatData.messages || [],
+                        lastMessage: chatData.lastMessage,
+                        timestamp: chatData.timestamp
+                    });
+                }
+            }
+            console.log(`📂 Chats cargados desde archivo: ${chats.size} conversaciones`);
+        }
+    } catch (error) {
+        console.error('❌ Error cargando chats:', error.message);
+    }
+}
+
+// Save chats periodically and on important events
+function scheduleChatSave() {
+    // Save every 30 seconds if there are changes
+    setInterval(() => {
+        if (chats.size > 0) {
+            saveChats();
+        }
+    }, 30000);
+}
+
 async function initBaileys() {
     const authDir = path.join(__dirname, 'auth');
     if (!fs.existsSync(authDir)) {
@@ -135,7 +222,8 @@ async function initBaileys() {
                         const chatKeys = await sock.chats.keys();
                         console.log(`📋 Chats cargados: ${chatKeys.length}`);
                         for (const jid of chatKeys) {
-                            const phone = jid.replace('@s.whatsapp.net', '').replace('@g.us', '');
+                            const rawPhone = jid.replace('@s.whatsapp.net', '').replace('@g.us', '');
+                            const phone = normalizePhoneKey(rawPhone);
                             if (!chats.has(phone)) {
                                 chats.set(phone, {
                                     phone,
@@ -304,7 +392,7 @@ async function initBaileys() {
             console.log(`   Mapeo actual:`, Array.from(jidToPhone.entries()));
 
             // Buscar el chat correcto
-            let chatKey = jidClean;
+            let chatKey = normalizePhoneKey(jidClean);
 
             // Para mensajes entrantes, usar senderPn si está disponible
             if (!msg.key.fromMe && senderPhone) {
@@ -323,8 +411,8 @@ async function initBaileys() {
                 }
                 
                 // Si no encontramos mapeo, usar el senderPhone directamente
-                if (chatKey === jidClean) {
-                    chatKey = senderPhone;
+                if (chatKey === normalizePhoneKey(jidClean)) {
+                    chatKey = normalizePhoneKey(senderPhone);
                     console.log(`   ✅ Usando senderPn directo: ${senderPhone}`);
                 }
             } else {
@@ -345,12 +433,11 @@ async function initBaileys() {
                 }
             }
 
-            // Fallback: si chatKey sigue siendo el JID limpio original (no se encontró mapeo),
-            // buscar si hay algún chat existente que coincida con el número
-            if (chatKey === jidClean && senderPhone) {
-                const normalizedSender = normalizePhone(senderPhone);
+            // Fallback: si chatKey no se encontró, buscar si hay algún chat existente que coincida
+            if (!chats.has(chatKey) && senderPhone) {
+                const normalizedSender = normalizePhoneKey(senderPhone);
                 for (const [existingPhone, chat] of chats.entries()) {
-                    if (normalizePhone(existingPhone) === normalizedSender) {
+                    if (normalizePhoneKey(existingPhone) === normalizedSender) {
                         chatKey = existingPhone;
                         console.log(`   ✅ Encontrado en chats existentes: ${existingPhone}`);
                         break;
@@ -448,7 +535,8 @@ async function initBaileys() {
             const jid = chat.id?._serialized || chat.id;
             if (!jid) continue;
 
-            const phone = jid.split('@')[0];  // Limpiar cualquier sufijo (@s.whatsapp.net, @g.us, @lid, etc.)
+            const rawPhone = jid.split('@')[0];
+            const phone = normalizePhoneKey(rawPhone);
             if (!phone) continue;
 
             if (!chats.has(phone)) {
@@ -462,33 +550,130 @@ async function initBaileys() {
             }
         }
 
-        // Process messages from history
+        // Process messages from history with rich media support
         for (const msg of newMessages || []) {
             const jid = msg.key?.remoteJid;
             if (!jid || !msg.message) continue;
 
-            const phone = jid.split('@')[0];  // Limpiar cualquier sufijo
+            const rawPhone = jid.split('@')[0];
+            const phone = normalizePhoneKey(rawPhone);
             if (!phone) continue;
 
             const msgObj = msg.message;
             let text = '';
-            if (msgObj.conversation) text = msgObj.conversation;
-            else if (msgObj.extendedTextMessage) text = msgObj.extendedTextMessage.text;
-            else if (msgObj.imageMessage) text = msgObj.imageMessage.caption || '';
-            else if (msgObj.videoMessage) text = msgObj.videoMessage.caption || '';
+            let mediaType = null;
+            let mediaThumbnail = null;
+            let mediaMimeType = null;
+            let mediaFileName = null;
+            let mediaUrl = null;
+            let mediaKey = null;
+            let mediaDirectPath = null;
+            let mediaFileLength = null;
 
-            if (!text) continue;
+            if (msgObj.conversation) {
+                text = msgObj.conversation;
+            } else if (msgObj.extendedTextMessage) {
+                text = msgObj.extendedTextMessage.text;
+            } else if (msgObj.imageMessage) {
+                let caption = msgObj.imageMessage.caption;
+                if (caption) {
+                    try { caption = Buffer.from(caption, 'latin1').toString('utf8'); } catch (e) {}
+                }
+                text = caption || '[Imagen]';
+                mediaType = 'image';
+                mediaMimeType = msgObj.imageMessage.mimetype;
+                mediaUrl = msgObj.imageMessage.url;
+                mediaKey = msgObj.imageMessage.mediaKey;
+                mediaDirectPath = msgObj.imageMessage.directPath;
+                mediaFileLength = msgObj.imageMessage.fileLength;
+                if (msgObj.imageMessage.jpegThumbnail) {
+                    mediaThumbnail = Buffer.from(msgObj.imageMessage.jpegThumbnail).toString('base64');
+                }
+                if (!mediaFileName) {
+                    const ext = mediaMimeType?.split('/')[1] || 'jpg';
+                    mediaFileName = `image-${msg.key.id}.${ext}`;
+                }
+            } else if (msgObj.videoMessage) {
+                let caption = msgObj.videoMessage.caption;
+                if (caption) {
+                    try { caption = Buffer.from(caption, 'latin1').toString('utf8'); } catch (e) {}
+                }
+                text = caption || '[Video]';
+                mediaType = 'video';
+                mediaMimeType = msgObj.videoMessage.mimetype;
+                mediaUrl = msgObj.videoMessage.url;
+                mediaKey = msgObj.videoMessage.mediaKey;
+                mediaDirectPath = msgObj.videoMessage.directPath;
+                mediaFileLength = msgObj.videoMessage.fileLength;
+                if (msgObj.videoMessage.jpegThumbnail) {
+                    mediaThumbnail = Buffer.from(msgObj.videoMessage.jpegThumbnail).toString('base64');
+                }
+                if (!mediaFileName) {
+                    const ext = mediaMimeType?.split('/')[1] || 'mp4';
+                    mediaFileName = `video-${msg.key.id}.${ext}`;
+                }
+            } else if (msgObj.documentMessage) {
+                let docCaption = msgObj.documentMessage.caption;
+                let fileName = msgObj.documentMessage.fileName;
+                if (docCaption) {
+                    try { docCaption = Buffer.from(docCaption, 'latin1').toString('utf8'); } catch (e) {}
+                }
+                if (fileName) {
+                    try { fileName = Buffer.from(fileName, 'latin1').toString('utf8'); } catch (e) {}
+                }
+                text = docCaption || fileName || '[Documento]';
+                mediaType = 'document';
+                mediaMimeType = msgObj.documentMessage.mimetype;
+                mediaFileName = fileName;
+                mediaUrl = msgObj.documentMessage.url;
+                mediaKey = msgObj.documentMessage.mediaKey;
+                mediaDirectPath = msgObj.documentMessage.directPath;
+                mediaFileLength = msgObj.documentMessage.fileLength;
+                if (!mediaFileName) {
+                    const ext = mediaMimeType?.split('/')[1] || 'bin';
+                    mediaFileName = `document-${msg.key.id}.${ext}`;
+                }
+            } else if (msgObj.audioMessage) {
+                text = '[Audio]';
+                mediaType = 'audio';
+                mediaMimeType = msgObj.audioMessage.mimetype;
+                mediaUrl = msgObj.audioMessage.url;
+                mediaKey = msgObj.audioMessage.mediaKey;
+                mediaDirectPath = msgObj.audioMessage.directPath;
+                mediaFileLength = msgObj.audioMessage.fileLength;
+                if (!mediaFileName) {
+                    let ext = mediaMimeType?.split(';')[0]?.split('/')[1] || 'ogg';
+                    mediaFileName = `audio-${msg.key.id}.${ext}`;
+                }
+            }
+
+            if (!text && !mediaType) continue;
 
             if (!chats.has(phone)) {
                 chats.set(phone, { phone, name: phone, messages: [], lastMessage: null, timestamp: Date.now() });
             }
 
             const chat = chats.get(phone);
+
+            // Evitar duplicados
+            const existingMsg = chat.messages.find(m => m.id === msg.key.id);
+            if (existingMsg) continue;
+
             const msgData = {
                 id: msg.key.id,
                 text: text,
                 timestamp: msg.messageTimestamp ? msg.messageTimestamp * 1000 : Date.now(),
-                isOutgoing: msg.key.fromMe
+                isOutgoing: msg.key.fromMe,
+                jid: jid,
+                senderPhone: msg.key.senderPn ? msg.key.senderPn.split('@')[0] : null,
+                mediaType: mediaType,
+                mediaThumbnail: mediaThumbnail,
+                mediaMimeType: mediaMimeType,
+                mediaFileName: mediaFileName,
+                mediaUrl: mediaUrl,
+                mediaKey: mediaKey,
+                mediaDirectPath: mediaDirectPath,
+                mediaFileLength: mediaFileLength
             };
             chat.messages.push(msgData);
             chat.lastMessage = msgData;
@@ -926,19 +1111,20 @@ app.post('/api/chats/:phone/send', async (req, res) => {
         }
 
         // Crear/Asegurar que el chat existe
-        if (!chats.has(phone)) {
-            chats.set(phone, {
-                phone,
-                name: phone,
+        const chatKey = normalizePhoneKey(phone);
+        if (!chats.has(chatKey)) {
+            chats.set(chatKey, {
+                phone: chatKey,
+                name: chatKey,
                 messages: [],
                 lastMessage: null,
                 timestamp: Date.now()
             });
         }
 
-        // El mensaje real llegará por messages.upsert, solo respondemos éxito
+        // El mensaje realLlegará por messages.upsert, solo respondemos éxito
         console.log(`✅ Mensaje enviado a ${jid}: ${message.substring(0, 30)}...`);
-        res.json({ success: true, message: 'Mensaje enviado', phone });
+        res.json({ success: true, message: 'Mensaje enviado', phone: chatKey });
     } catch (error) {
         console.error('❌ Error al enviar mensaje:', error.message);
         res.status(500).json({ success: false, error: error.message });
@@ -1008,16 +1194,17 @@ app.post('/api/chats/send-with-files', upload.array('files', 10), async (req, re
         }
 
         if (!chats.has(phone)) {
-            chats.set(phone, {
-                phone,
-                name: phone,
+            const chatKey = normalizePhoneKey(phone);
+            chats.set(chatKey, {
+                phone: chatKey,
+                name: chatKey,
                 messages: [],
                 lastMessage: null,
                 timestamp: Date.now()
             });
         }
 
-        console.log(`✅ Mensaje con archivos enviado a ${phone}`);
+        console.log(`✅ Mensaje con archivos enviado a ${normalizePhoneKey(phone)}`);
         res.json({ success: true, message: 'Mensaje enviado correctamente', phone });
 
         // Limpiar archivos subidos después de enviar
@@ -1083,6 +1270,9 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 
 async function start() {
+    // Load persisted chats before initializing Baileys
+    loadChats();
+    scheduleChatSave();
     await initBaileys();
     server.listen(PORT, () => {
         console.log(`\n🟢 Servidor corriendo en http://localhost:${PORT}`);
