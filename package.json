@@ -21,5 +21,12 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "auth/*",
+      "uploads/*",
+      ".wwebjs_cache/*"
+    ]
   }
 }

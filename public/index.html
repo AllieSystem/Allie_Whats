@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WhatsApp Chat</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="corporate-styles.css">
     <style>
         * {
             margin: 0;
@@ -15,7 +17,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+            background-color: #f4f6f9;
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -26,7 +28,7 @@
         .container {
             background: white;
             border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             max-width: 500px;
             width: 100%;
             overflow: hidden;
@@ -75,8 +77,15 @@
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
         }
 
         .content {
@@ -108,7 +117,7 @@
 
         #qrcode img {
             border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
         .qr-placeholder {
@@ -207,7 +216,7 @@
         }
 
         .spinner {
-            border: 3px solid rgba(255,255,255,0.3);
+            border: 3px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
             border-top: 3px solid white;
             width: 20px;
@@ -217,7 +226,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .message {
@@ -606,7 +617,7 @@
             padding: 8px 12px;
             border-radius: 20px;
             font-size: 0.85rem;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
 
         .file-preview-item .remove-file {
@@ -712,11 +723,13 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
-            <h1>💬 WhatsApp Chat</h1>
-            <p>Envía y recibe mensajes fácilmente</p>
+            <h1>Envíos de WhatsApp</h1>
+            <!-- <h1>💬 WhatsApp Chat (Proyecto Neltia)</h1> -->
+            <!-- <p>Proyecto Neltia</p> -->
         </div>
 
         <div class="status-bar">
@@ -740,7 +753,8 @@
                     <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
                         Ingresa este código en WhatsApp:
                     </p>
-                    <div id="pairingCodeDisplay" style="font-size: 2rem; font-weight: bold; letter-spacing: 5px; color: #25d366; padding: 15px; background: #f5f5f5; border-radius: 10px; margin: 10px 0;">
+                    <div id="pairingCodeDisplay"
+                        style="font-size: 2rem; font-weight: bold; letter-spacing: 5px; color: #25d366; padding: 15px; background: #f5f5f5; border-radius: 10px; margin: 10px 0;">
                     </div>
                     <p style="font-size: 0.8rem; color: #999;">
                         WhatsApp → Ajustes → Dispositivos vinculados → Vincular dispositivo
@@ -799,11 +813,13 @@
                                 <div class="chat-input-area">
                                     <label class="attach-btn" for="fileInput" title="Adjuntar archivo">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                                            <path
+                                                d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                                         </svg>
                                     </label>
                                     <input type="file" id="fileInput" style="display: none;" multiple>
-                                    <input type="text" class="chat-input" id="chatInput" placeholder="Escribe un mensaje...">
+                                    <input type="text" class="chat-input" id="chatInput"
+                                        placeholder="Escribe un mensaje...">
                                     <button class="btn btn-primary btn-send" id="chatSendBtn">Enviar</button>
                                 </div>
                                 <div id="filePreview" class="file-preview"></div>
@@ -817,7 +833,7 @@
                 </button>
             </div>
 
-            <div class="instructions">
+            <!-- <div class="instructions">
                 <h3>📋 Instrucciones:</h3>
                 <ol>
                     <li>Espera a que se genere el código QR</li>
@@ -826,8 +842,9 @@
                     <li>Escanea el código QR</li>
                     <li>¡Listo! Ya puedes enviar y recibir mensajes</li>
                 </ol>
-                <p><strong>💬 Chat:</strong> Ve a la pestaña "Conversaciones" para ver tus chats activos y responder mensajes.</p>
-            </div>
+                <p><strong>💬 Chat:</strong> Ve a la pestaña "Conversaciones" para ver tus chats activos y responder
+                    mensajes.</p>
+            </div> -->
         </div>
     </div>
 
@@ -1009,7 +1026,7 @@
         function updateOrAddChat(chat) {
             const normalizePhone = (phone) => phone?.toString().replace(/\D/g, '') || phone;
             const chatNormalized = normalizePhone(chat.phone);
-            
+
             const existingIndex = chatsData.findIndex(c => normalizePhone(c.phone) === chatNormalized);
             const chatSummary = {
                 phone: chat.phone,
@@ -1038,7 +1055,7 @@
 
             chatList.innerHTML = chatsData.map(chat => {
                 const preview = chat.lastMessage ? chat.lastMessage.text.substring(0, 30) + '...' : 'Sin mensajes';
-                const time = chat.lastMessage ? new Date(chat.lastMessage.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+                const time = chat.lastMessage ? new Date(chat.lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                 const isActive = currentChat === chat.phone ? 'active' : '';
 
                 return `
@@ -1085,14 +1102,14 @@
 
             const displayName = chatData.name && chatData.name !== phone ? chatData.name : phone;
             document.getElementById('chatHeader').textContent = `Chat con: ${displayName}`;
-            
+
             renderMessages(chatData.messages);
             renderChatList();
-            
+
             setTimeout(() => {
                 loadMessages(phone);
             }, 500);
-            
+
             setTimeout(() => {
                 loadMessages(phone);
             }, 4000);
@@ -1115,13 +1132,13 @@
 
             messages.forEach(msg => {
                 console.log('📨 Rendering message:', { id: msg.id, mediaType: msg.mediaType, mediaFileName: msg.mediaFileName });
-                
+
                 const bubble = document.createElement('div');
                 bubble.className = `message-bubble ${msg.isOutgoing ? 'outgoing' : 'incoming'}`;
-                
+
                 let mediaHtml = '';
                 const isDocument = msg.mediaType === 'document';
-                
+
                 if (isAudio) {
                     mediaHtml = `
                         <div class="message-media audio-indicator">
@@ -1148,7 +1165,7 @@
                     else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt)) docIcon = '🖼️';
                     else if (['mp3', 'wav', 'ogg', 'm4a'].includes(fileExt)) docIcon = '🎵';
                     else if (['mp4', 'avi', 'mov', 'mkv'].includes(fileExt)) docIcon = '🎬';
-                    
+
                     mediaHtml = `
                         <div class="message-media document-indicator" onclick="downloadMedia('${msg.id}')">
                             <span class="doc-icon">${docIcon}</span>
@@ -1166,7 +1183,7 @@
                 } else if (msg.mediaThumbnail) {
                     const mimeType = msg.mediaMimeType || 'image/jpeg';
                     const isVideo = msg.mediaType === 'video';
-                    
+
                     if (isVideo) {
                         mediaHtml = `
                             <div class="message-media video-thumbnail">
@@ -1238,11 +1255,11 @@
                         `;
                     }
                 }
-                
+
                 bubble.innerHTML = `
                     ${mediaHtml}
                     ${msg.text ? `<div>${escapeHtml(msg.text)}</div>` : ''}
-                    <div class="message-time">${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                    <div class="message-time">${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                 `;
                 container.appendChild(bubble);
             });
@@ -1275,20 +1292,20 @@
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                
+
                 const contentDisposition = response.headers.get('Content-Disposition');
                 let fileName = 'archivo';
                 if (contentDisposition) {
                     const fileNameMatch = contentDisposition.match(/filename="?([^";]+)"?/);
                     if (fileNameMatch) fileName = fileNameMatch[1];
                 }
-                
+
                 a.download = fileName;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(a);
-                
+
                 showMessage('Archivo descargado correctamente', 'success');
             } catch (error) {
                 console.error('Error descargando:', error);
@@ -1322,7 +1339,7 @@
                     const formData = new FormData();
                     formData.append('phone', currentChat);
                     formData.append('message', message);
-                    
+
                     selectedFiles.forEach((file, index) => {
                         formData.append('files', file);
                     });
@@ -1440,7 +1457,7 @@
 
             // Función para normalizar números (solo dígitos)
             const normalizePhone = (phone) => phone?.toString().replace(/\D/g, '') || phone;
-            
+
             const currentNormalized = normalizePhone(currentChat);
             const dataPhoneNormalized = normalizePhone(data.phone);
 
@@ -1453,16 +1470,16 @@
                 const msg = data.message;
                 console.log('🎵 Processing audio message:', msg.mediaType, 'isAudio:', msg.mediaType === 'audio');
                 console.log('🎵 Type of mediaType:', typeof msg.mediaType);
-                
+
                 const bubble = document.createElement('div');
                 bubble.className = `message-bubble ${msg.isOutgoing ? 'outgoing' : 'incoming'}`;
-                
+
                 let mediaHtml = '';
                 const isDocument = msg.mediaType === 'document';
                 const isAudio = msg.mediaType === 'audio';
-                
+
                 console.log('   🎵 Debug - mediaType:', msg.mediaType, 'isDocument:', isDocument, 'isAudio:', isAudio);
-                
+
                 if (isAudio) {
                     mediaHtml = `
                         <div class="message-media audio-indicator">
@@ -1489,7 +1506,7 @@
                     else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt)) docIcon = '🖼️';
                     else if (['mp3', 'wav', 'ogg', 'm4a'].includes(fileExt)) docIcon = '🎵';
                     else if (['mp4', 'avi', 'mov', 'mkv'].includes(fileExt)) docIcon = '🎬';
-                    
+
                     mediaHtml = `
                         <div class="message-media document-indicator" onclick="downloadMedia('${msg.id}')">
                             <span class="doc-icon">${docIcon}</span>
@@ -1507,7 +1524,7 @@
                 } else if (msg.mediaThumbnail) {
                     const mimeType = msg.mediaMimeType || 'image/jpeg';
                     const isVideo = msg.mediaType === 'video';
-                    
+
                     if (isVideo) {
                         mediaHtml = `
                             <div class="message-media video-thumbnail">
@@ -1579,11 +1596,11 @@
                         `;
                     }
                 }
-                
+
                 bubble.innerHTML = `
                     ${mediaHtml}
                     ${msg.text ? `<div>${escapeHtml(msg.text)}</div>` : ''}
-                    <div class="message-time">${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                    <div class="message-time">${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                 `;
                 container.appendChild(bubble);
                 container.scrollTop = container.scrollHeight;
@@ -1616,4 +1633,5 @@
             });
     </script>
 </body>
+
 </html>

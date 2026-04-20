@@ -39,7 +39,12 @@ app.use(express.json());
 app.use(express.static('public'));
 app.use('/uploads', express.static(uploadDir));
 
-const io = new Server(server);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
 let sock = null;
 let connectionStatus = 'Desconectado';
@@ -535,20 +540,48 @@ async function requestPairing() {
     }
 }
 
-function phoneToJid(phone) {
+async function phoneToJid(phone) {
     let cleanPhone = phone.replace(/[^0-9]/g, '');
+    let jid = cleanPhone + '@s.whatsapp.net';
 
-    // Para México (52): si el número empieza con 52 y tiene 12 dígitos,
-    // puede necesitar un "1" después del 52 para móviles
-    // Ejemplo: 525535000761 -> 5215535000761 (si es móvil)
+    if (sock) {
+        try {
+            // First try the number exactly as provided
+            let result = await sock.onWhatsApp(jid);
+            if (result && result.length > 0 && result[0]) {
+                return result[0].jid;
+            }
+
+            // If it's a Mexican number without '1', try adding '1'
+            if (cleanPhone.startsWith('52') && cleanPhone.length === 12) {
+                let jidWith1 = '521' + cleanPhone.substring(2) + '@s.whatsapp.net';
+                let resultWith1 = await sock.onWhatsApp(jidWith1);
+                if (resultWith1 && resultWith1.length > 0 && resultWith1[0]) {
+                    return resultWith1[0].jid;
+                }
+            }
+            
+            // If it's a Mexican number with '1', try removing '1'
+            if (cleanPhone.startsWith('521') && cleanPhone.length === 13) {
+                let jidWithout1 = '52' + cleanPhone.substring(3) + '@s.whatsapp.net';
+                let resultWithout1 = await sock.onWhatsApp(jidWithout1);
+                if (resultWithout1 && resultWithout1.length > 0 && resultWithout1[0]) {
+                    return resultWithout1[0].jid;
+                }
+            }
+        } catch (error) {
+            console.log('⚠️ Error verificando JID:', error.message);
+        }
+    }
+
+    // Fallback original if not found via onWhatsApp
     if (cleanPhone.startsWith('52') && cleanPhone.length === 12) {
-        // Verificar si es un número móvil mexicano (empieza con 55, 33, 81, etc.)
         const areaCode = cleanPhone.substring(2, 4);
         const mobileCodes = ['55', '33', '81', '22', '44', '47', '56', '58', '59', '61', '62', '64', '65', '66', '67', '71', '72', '73', '74', '75', '76', '77', '78', '79', '82', '83', '84', '86', '87', '88', '89', '91', '92', '93', '94', '95', '96', '97', '98', '99'];
 
         if (mobileCodes.includes(areaCode)) {
             const formattedPhone = '521' + cleanPhone.substring(2);
-            console.log(`📱 Número mexicano detectado. Formateando: ${cleanPhone} -> ${formattedPhone}`);
+            console.log(`📱 Fallback: Formateando: ${cleanPhone} -> ${formattedPhone}`);
             cleanPhone = formattedPhone;
         }
     }
@@ -724,7 +757,7 @@ app.get('/api/check/:phone', async (req, res) => {
     }
 
     try {
-        const jid = phoneToJid(phone);
+        const jid = await phoneToJid(phone);
         console.log(`🔍 Verificando si ${jid} tiene WhatsApp...`);
 
         // Intentar obtener el perfil del usuario
@@ -775,7 +808,7 @@ app.post('/api/send', async (req, res) => {
     }
 
     try {
-        const jid = phoneToJid(cleanPhone);
+        const jid = await phoneToJid(cleanPhone);
         console.log(`📤 Enviando mensaje a ${jid}`);
 
         // Enviar mensaje y esperar confirmación
@@ -847,7 +880,7 @@ app.post('/api/chats/:phone/send', async (req, res) => {
     }
 
     try {
-        const jid = phoneToJid(phone);
+        const jid = await phoneToJid(phone);
         console.log(`📤 Enviando mensaje a ${jid} (${phone})`);
 
         const sent = await sock.sendMessage(jid, { text: message });
@@ -907,7 +940,7 @@ app.post('/api/chats/send-with-files', upload.array('files', 10), async (req, re
     }
 
     try {
-        const jid = phoneToJid(phone);
+        const jid = await phoneToJid(phone);
         console.log(`📤 Enviando mensaje con ${files.length} archivo(s) a ${jid}`);
 
         let messageContent = {};
