@@ -9,6 +9,10 @@ import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import multer from 'multer';
 import crypto from 'crypto';
+import NodeCache from 'node-cache';
+
+const msgRetryCounterCache = new NodeCache();
+const messageStore = new Map(); // Almacén para resolver retries (Errores de descifrado)
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,9 +74,16 @@ async function initBaileys() {
     sock = makeWASocket({
         version,
         auth: state,
-        logger: pino({ level: 'debug' }),
+        logger: pino({ level: 'silent' }), // Reducir ruido en consola
         connectTimeoutMs: 60000,
-        keepaliveIntervalMs: 30000
+        keepaliveIntervalMs: 30000,
+        markOnlineOnConnect: true,
+        msgRetryCounterCache,
+        getMessage: async (key) => {
+            const msg = messageStore.get(key.id);
+            if (msg) return msg.message;
+            return { conversation: 'Mensaje reenviado automáticamente' };
+        }
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -149,6 +160,14 @@ async function initBaileys() {
 
         for (const msg of messages) {
             if (!msg.message) continue;
+
+            // Almacenar el mensaje completo para resolver posibles reintentos de descifrado (E2EE)
+            messageStore.set(msg.key.id, msg);
+            // Limpiar cache si crece demasiado
+            if (messageStore.size > 5000) {
+                const firstKey = messageStore.keys().next().value;
+                messageStore.delete(firstKey);
+            }
 
             const jid = msg.key.remoteJid;
             const jidClean = jid.split('@')[0];
@@ -814,6 +833,9 @@ app.post('/api/send', async (req, res) => {
         // Enviar mensaje y esperar confirmación
         const sent = await sock.sendMessage(jid, { text: message });
 
+        // Guardar en el almacén para posibles retries del cliente
+        if (sent) messageStore.set(sent.key.id, sent);
+
         console.log(`📤 Respuesta de sendMessage:`, JSON.stringify({
             key: sent?.key,
             status: sent?.status
@@ -884,6 +906,7 @@ app.post('/api/chats/:phone/send', async (req, res) => {
         console.log(`📤 Enviando mensaje a ${jid} (${phone})`);
 
         const sent = await sock.sendMessage(jid, { text: message });
+        if (sent) messageStore.set(sent.key.id, sent);
 
         console.log(`📤 Respuesta de sendMessage:`, JSON.stringify({
             key: sent?.key,
@@ -967,6 +990,8 @@ app.post('/api/chats/send-with-files', upload.array('files', 10), async (req, re
         }
 
         const sent = await sock.sendMessage(jid, messageContent);
+
+        if (sent) messageStore.set(sent.key.id, sent);
 
         if (sent?.status === 'ERROR') {
             throw new Error('WhatsApp rechazó el mensaje');
