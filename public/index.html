@@ -306,19 +306,23 @@
         }
 
         .chat-item {
-            padding: 12px;
-            border-radius: 10px;
+            padding: 14px;
+            border-radius: 12px;
             cursor: pointer;
-            transition: background 0.2s;
-            margin-bottom: 8px;
+            transition: all 0.2s ease;
+            margin-bottom: 6px;
+            background: #f8f9fa;
+            border-left: 3px solid transparent;
         }
 
         .chat-item:hover {
-            background: #f0f0f0;
+            background: #e9ecef;
+            border-left-color: #25d366;
         }
 
         .chat-item.active {
             background: #dcf8c6;
+            border-left-color: #128c7e;
         }
 
         .chat-item-header {
@@ -329,39 +333,57 @@
 
         .chat-item-phone {
             font-weight: 600;
-            color: #333;
+            color: #212529;
+            font-size: 0.95rem;
         }
 
         .chat-item-time {
-            font-size: 0.75rem;
-            color: #999;
+            font-size: 0.7rem;
+            color: #6c757d;
+            font-weight: 500;
         }
 
         .chat-item-preview {
             font-size: 0.85rem;
-            color: #666;
+            color: #6c757d;
             margin-top: 4px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            max-width: 180px;
         }
 
         .chat-header {
-            padding: 15px;
-            background: #075e54;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #075e54 0%, #128c7e 100%);
             color: white;
             border-radius: 10px 10px 0 0;
             font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .chat-header-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
         }
 
         .messages-container {
             flex: 1;
             overflow-y: auto;
             padding: 15px;
-            background: #e5ddd5;
+            background: linear-gradient(180deg, #e5ddd5 0%, #dbe4da 100%);
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
 
         .message-bubble {
@@ -369,25 +391,53 @@
             padding: 10px 15px;
             border-radius: 15px;
             word-wrap: break-word;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease;
+        }
+
+        .message-bubble:hover {
+            transform: translateY(-1px);
         }
 
         .message-bubble.incoming {
             background: white;
             align-self: flex-start;
             border-bottom-left-radius: 5px;
+            border: 1px solid #e9ecef;
         }
 
         .message-bubble.outgoing {
             background: #dcf8c6;
             align-self: flex-end;
             border-bottom-right-radius: 5px;
+            border: 1px solid #c8e6c3;
         }
 
         .message-time {
-            font-size: 0.7rem;
-            color: #999;
+            font-size: 0.65rem;
+            color: #6c757d;
             text-align: right;
             margin-top: 4px;
+            font-weight: 500;
+        }
+
+        .message-date-divider {
+            text-align: center;
+            padding: 8px 0;
+            color: #6c757d;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .message-date-divider::before,
+        .message-date-divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .message-date-divider span {
+            padding: 0 10px;
         }
 
         .message-media {
@@ -1133,15 +1183,15 @@
             container.innerHTML = '';
 
             messages.forEach(msg => {
-                console.log('📨 Rendering message:', { id: msg.id, mediaType: msg.mediaType, mediaFileName: msg.mediaFileName });
-
                 const bubble = document.createElement('div');
                 bubble.className = `message-bubble ${msg.isOutgoing ? 'outgoing' : 'incoming'}`;
 
                 let mediaHtml = '';
                 const isDocument = msg.mediaType === 'document';
+                const isAudio = msg.mediaType === 'audio';
+                const hasThumbnail = msg.mediaThumbnail && msg.mediaThumbnail.length > 0;
 
-                if (isAudio) {
+                if (isAudio && !hasThumbnail) {
                     mediaHtml = `
                         <div class="message-media audio-indicator">
                             <span class="audio-icon">🎵</span>
@@ -1155,8 +1205,7 @@
                             </button>
                         </div>
                     `;
-                    console.log('   ✅ Generated audio HTML');
-                } else if (isDocument && !msg.mediaThumbnail) {
+                } else if (isDocument && !hasThumbnail) {
                     const fileExt = (msg.mediaFileName || '').split('.').pop().toLowerCase();
                     let docIcon = '📎';
                     if (['pdf'].includes(fileExt)) docIcon = '📕';
@@ -1452,26 +1501,14 @@
 
         // Escuchar mensajes en tiempo real
         socket.on('new_message', (data) => {
-            console.log('📩 Nuevo mensaje recibido:', { phone: data.phone, mediaType: data.message.mediaType, mediaFileName: data.message.mediaFileName });
-            console.log('   currentChat:', currentChat, 'data.phone:', data.phone);
-
             updateOrAddChat(data.chat);
 
-            // Función para normalizar números (solo dígitos)
-            const normalizePhone = (phone) => phone?.toString().replace(/\D/g, '') || phone;
+            const currentNormalized = normalizePhoneKey(currentChat || '');
+            const dataPhoneNormalized = normalizePhoneKey(data.phone || '');
 
-            const currentNormalized = normalizePhone(currentChat);
-            const dataPhoneNormalized = normalizePhone(data.phone);
-
-            // Verificar si el mensaje es para el chat actual abierto
-            // Comparar números normalizados para evitar problemas con formatos diferentes
             if (currentChat && data.phone && (currentNormalized === dataPhoneNormalized)) {
-                console.log('   -> Actualizando chat actual');
-                // Agregar mensaje directamente al contenedor para actualización inmediata
                 const container = document.getElementById('messagesContainer');
                 const msg = data.message;
-                console.log('🎵 Processing audio message:', msg.mediaType, 'isAudio:', msg.mediaType === 'audio');
-                console.log('🎵 Type of mediaType:', typeof msg.mediaType);
 
                 const bubble = document.createElement('div');
                 bubble.className = `message-bubble ${msg.isOutgoing ? 'outgoing' : 'incoming'}`;
@@ -1479,10 +1516,9 @@
                 let mediaHtml = '';
                 const isDocument = msg.mediaType === 'document';
                 const isAudio = msg.mediaType === 'audio';
+                const hasThumbnail = msg.mediaThumbnail && msg.mediaThumbnail.length > 0;
 
-                console.log('   🎵 Debug - mediaType:', msg.mediaType, 'isDocument:', isDocument, 'isAudio:', isAudio);
-
-                if (isAudio) {
+                if (isAudio && !hasThumbnail) {
                     mediaHtml = `
                         <div class="message-media audio-indicator">
                             <span class="audio-icon">🎵</span>
@@ -1496,8 +1532,7 @@
                             </button>
                         </div>
                     `;
-                    console.log('   ✅ Generated audio HTML');
-                } else if (isDocument && !msg.mediaThumbnail) {
+                } else if (isDocument && !hasThumbnail) {
                     const fileExt = (msg.mediaFileName || '').split('.').pop().toLowerCase();
                     let docIcon = '📎';
                     if (['pdf'].includes(fileExt)) docIcon = '📕';

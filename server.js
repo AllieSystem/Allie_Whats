@@ -68,6 +68,11 @@ const normalizePhoneKey = (phone) => {
     return digits.slice(-10); // Últimos 10 dígitos para clave consistente
 };
 
+const botPhoneNormalized = normalizePhoneKey(pairingPhone); // Teléfono propio del bot
+
+// Verificar si es el número del bot
+const isBotPhone = (phone) => normalizePhoneKey(phone) === botPhoneNormalized;
+
 // ==================== PERSISTENT STORAGE ====================
 const dataDir = path.join(__dirname, 'data');
 const chatsFilePath = path.join(dataDir, 'chats.json');
@@ -77,6 +82,9 @@ function saveChats() {
         const chatsMap = new Map();
         for (const [phone, chat] of chats.entries()) {
             const key = normalizePhoneKey(phone);
+            // Ignorar el número del propio bot
+            if (isBotPhone(key)) continue;
+
             if (!chatsMap.has(key)) {
                 chatsMap.set(key, {
                     phone: key,
@@ -110,6 +118,9 @@ function loadChats() {
             chats.clear();
             for (const chatData of chatsData) {
                 const key = normalizePhoneKey(chatData.phone);
+                // Ignorar el número del propio bot
+                if (isBotPhone(key)) continue;
+
                 if (chats.has(key)) {
                     const existing = chats.get(key);
                     const newMessages = chatData.messages || [];
@@ -539,6 +550,12 @@ async function initBaileys() {
             const phone = normalizePhoneKey(rawPhone);
             if (!phone) continue;
 
+            // Ignorar el número del propio bot
+            if (isBotPhone(phone)) {
+                console.log(`   ⏭️ Ignorando chat del propio bot: ${phone}`);
+                continue;
+            }
+
             if (!chats.has(phone)) {
                 chats.set(phone, {
                     phone,
@@ -558,6 +575,9 @@ async function initBaileys() {
             const rawPhone = jid.split('@')[0];
             const phone = normalizePhoneKey(rawPhone);
             if (!phone) continue;
+
+            // Ignorar mensajes del propio bot
+            if (isBotPhone(phone)) continue;
 
             const msgObj = msg.message;
             let text = '';
