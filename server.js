@@ -386,14 +386,38 @@ async function initBaileys() {
         mediaDirectPath = msgObj.audioMessage.directPath;
         mediaFileLength = msgObj.audioMessage.fileLength;
         
-        console.log('   🎤 Audio message received:', { mediaUrl, mediaKey, mediaDirectPath, mediaMimeType });
-        
         if (!mediaFileName) {
-            // Limpiar el mimetype para obtener solo la extensión
             let ext = mediaMimeType?.split(';')[0]?.split('/')[1] || 'ogg';
             mediaFileName = `audio-${Date.now()}.${ext}`;
         }
     }
+
+    // --- NUEVO: Extraer mensaje citado (Reply/Context) ---
+    let quotedMsg = null;
+    const contextInfo = msgObj.extendedTextMessage?.contextInfo || 
+                        msgObj.imageMessage?.contextInfo || 
+                        msgObj.videoMessage?.contextInfo || 
+                        msgObj.documentMessage?.contextInfo || 
+                        msgObj.audioMessage?.contextInfo;
+
+    if (contextInfo && contextInfo.quotedMessage) {
+        const quoted = contextInfo.quotedMessage;
+        let quotedText = '';
+        if (quoted.conversation) quotedText = quoted.conversation;
+        else if (quoted.extendedTextMessage) quotedText = quoted.extendedTextMessage.text;
+        else if (quoted.imageMessage) quotedText = quoted.imageMessage.caption || '[Imagen]';
+        else if (quoted.videoMessage) quotedText = quoted.videoMessage.caption || '[Video]';
+        else if (quoted.documentMessage) quotedText = quoted.documentMessage.caption || quoted.documentMessage.fileName || '[Documento]';
+        else if (quoted.audioMessage) quotedText = '[Audio]';
+        else if (quoted.stickerMessage) quotedText = '[Sticker]';
+        
+        quotedMsg = {
+            id: contextInfo.stanzaId, // Capturamos el ID original
+            text: quotedText,
+            sender: contextInfo.participant ? contextInfo.participant.split('@')[0] : 'Alguien'
+        };
+    }
+    // ---------------------------------------------------
 
     if (!text) text = JSON.stringify(msgObj).substring(0, 30);
 
@@ -483,7 +507,8 @@ async function initBaileys() {
                 mediaUrl: mediaUrl,
                 mediaKey: mediaKey,
                 mediaDirectPath: mediaDirectPath,
-                mediaFileLength: mediaFileLength
+                mediaFileLength: mediaFileLength,
+                quotedMsg: quotedMsg
             };
             chat.messages.push(msgData);
             chat.lastMessage = msgData;
@@ -667,6 +692,32 @@ async function initBaileys() {
                 }
             }
 
+            // --- NUEVO: Extraer mensaje citado en Historial ---
+            let quotedMsg = null;
+            const contextInfo = msgObj.extendedTextMessage?.contextInfo || 
+                                msgObj.imageMessage?.contextInfo || 
+                                msgObj.videoMessage?.contextInfo || 
+                                msgObj.documentMessage?.contextInfo || 
+                                msgObj.audioMessage?.contextInfo;
+
+            if (contextInfo && contextInfo.quotedMessage) {
+                const quoted = contextInfo.quotedMessage;
+                let quotedText = '';
+                if (quoted.conversation) quotedText = quoted.conversation;
+                else if (quoted.extendedTextMessage) quotedText = quoted.extendedTextMessage.text;
+                else if (quoted.imageMessage) quotedText = quoted.imageMessage.caption || '[Imagen]';
+                else if (quoted.videoMessage) quotedText = quoted.videoMessage.caption || '[Video]';
+                else if (quoted.documentMessage) quotedText = quoted.documentMessage.caption || quoted.documentMessage.fileName || '[Documento]';
+                else if (quoted.audioMessage) quotedText = '[Audio]';
+                
+                quotedMsg = {
+                    id: contextInfo.stanzaId, // Capturamos el ID original
+                    text: quotedText,
+                    sender: contextInfo.participant ? contextInfo.participant.split('@')[0] : 'Alguien'
+                };
+            }
+            // -------------------------------------------------
+
             if (!text && !mediaType) continue;
 
             if (!chats.has(phone)) {
@@ -693,7 +744,8 @@ async function initBaileys() {
                 mediaUrl: mediaUrl,
                 mediaKey: mediaKey,
                 mediaDirectPath: mediaDirectPath,
-                mediaFileLength: mediaFileLength
+                mediaFileLength: mediaFileLength,
+                quotedMsg: quotedMsg
             };
             chat.messages.push(msgData);
             chat.lastMessage = msgData;

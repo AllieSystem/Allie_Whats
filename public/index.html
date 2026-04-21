@@ -440,6 +440,52 @@
             padding: 0 10px;
         }
 
+        /* Estilo para mensajes citados (Replies) */
+        .quoted-message-container {
+            background: rgba(0, 0, 0, 0.05);
+            border-left: 4px solid #25d366;
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .message-bubble.outgoing .quoted-message-container {
+            border-left-color: #075e54;
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        .quoted-sender {
+            font-weight: bold;
+            color: #128c7e;
+            display: block;
+            margin-bottom: 2px;
+            font-size: 0.75rem;
+        }
+
+        .quoted-text {
+            color: #4a4a4a;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.2;
+        }
+
+        /* Animación de resaltado al saltar a un mensaje */
+        @keyframes highlight-msg {
+            0% { background-color: #dcf8c6; transform: scale(1); }
+            50% { background-color: #ffeb3b; transform: scale(1.03); box-shadow: 0 0 15px rgba(255, 235, 59, 0.5); }
+            100% { background-color: initial; transform: scale(1); }
+        }
+
+        .message-bubble.highlighted {
+            animation: highlight-msg 1.5s ease-out;
+            z-index: 100;
+        }
+
         .message-media {
             margin-bottom: 8px;
             border-radius: 12px;
@@ -1184,6 +1230,7 @@
 
             messages.forEach(msg => {
                 const bubble = document.createElement('div');
+                bubble.id = `msg-${msg.id}`; // ID para scroll
                 bubble.className = `message-bubble ${msg.isOutgoing ? 'outgoing' : 'incoming'}`;
 
                 let mediaHtml = '';
@@ -1307,7 +1354,18 @@
                     }
                 }
 
+                let quotedHtml = '';
+                if (msg.quotedMsg) {
+                    quotedHtml = `
+                        <div class="quoted-message-container" onclick="scrollToMessage('${msg.quotedMsg.id}')">
+                            <span class="quoted-sender">${escapeHtml(msg.quotedMsg.sender)}</span>
+                            <span class="quoted-text">${escapeHtml(msg.quotedMsg.text)}</span>
+                        </div>
+                    `;
+                }
+
                 bubble.innerHTML = `
+                    ${quotedHtml}
                     ${mediaHtml}
                     ${msg.text ? `<div>${escapeHtml(msg.text)}</div>` : ''}
                     <div class="message-time">${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
@@ -1511,6 +1569,7 @@
                 const msg = data.message;
 
                 const bubble = document.createElement('div');
+                bubble.id = `msg-${msg.id}`; // ID para scroll
                 bubble.className = `message-bubble ${msg.isOutgoing ? 'outgoing' : 'incoming'}`;
 
                 let mediaHtml = '';
@@ -1634,7 +1693,18 @@
                     }
                 }
 
+                let quotedHtml = '';
+                if (msg.quotedMsg) {
+                    quotedHtml = `
+                        <div class="quoted-message-container" onclick="scrollToMessage('${msg.quotedMsg.id}')">
+                            <span class="quoted-sender">${escapeHtml(msg.quotedMsg.sender)}</span>
+                            <span class="quoted-text">${escapeHtml(msg.quotedMsg.text)}</span>
+                        </div>
+                    `;
+                }
+
                 bubble.innerHTML = `
+                    ${quotedHtml}
                     ${mediaHtml}
                     ${msg.text ? `<div>${escapeHtml(msg.text)}</div>` : ''}
                     <div class="message-time">${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
@@ -1668,6 +1738,25 @@
                     loadChats();
                 }
             });
+
+        // Función para desplazarse al mensaje original
+        function scrollToMessage(msgId) {
+            const target = document.getElementById(`msg-${msgId}`);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Efecto de resaltado
+                target.classList.remove('highlighted');
+                void target.offsetWidth; // Trigger reflow
+                target.classList.add('highlighted');
+                
+                setTimeout(() => {
+                    target.classList.remove('highlighted');
+                }, 2000);
+            } else {
+                console.log('Mensaje original no encontrado en la vista actual');
+            }
+        }
     </script>
 </body>
 
