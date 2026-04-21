@@ -1,33 +1,24 @@
-# WhatsApp Chat
+# WhatsApp Chat API
 
-Aplicación web para conectar con WhatsApp Web escaneando un código QR, enviar mensajes y chatear bidireccionalmente con contactos.
+API REST para conectar con WhatsApp Web, enviar mensajes y recibir notificaciones en tiempo real mediante WebSockets.
 
-## Características
+## Tabla de Contenidos
 
-- Escaneo de QR para conectar con WhatsApp Web
-- Interfaz web moderna y responsive
-- Envío de mensajes a cualquier número
-- **Recepción de mensajes en tiempo real**
-- **Interfaz de chat bidireccional** con historial de conversaciones
-- Estado de conexión en tiempo real
-- Persistencia de sesión (no requiere escanear QR cada vez)
+- [Instalación](#instalación)
+- [Uso](#uso)
+- [API Reference](#api-reference)
+- [WebSockets](#websockets)
+- [Tipos de Mensajes](#tipos-de-mensajes)
+- [Códigos de Error](#códigos-de-error)
+- [Formatos](#formatos)
 
-## Requisitos
-
-- Node.js 14.x o superior
-- npm o yarn
-- Google Chrome instalado (para puppeteer)
+---
 
 ## Instalación
-
-1. Clona o descarga este repositorio
-2. Instala las dependencias:
 
 ```bash
 npm install
 ```
-
-## Uso
 
 ### Desarrollo
 
@@ -43,91 +34,558 @@ npm start
 
 La aplicación estará disponible en `http://localhost:3000`
 
-## Instrucciones de uso
+---
+
+## Autenticación
+
+### Conexión QR
 
 1. Abre la aplicación en tu navegador
-2. Espera a que se genere el código QR
-3. Abre WhatsApp en tu teléfono
-4. Ve a **Ajustes** → **WhatsApp Web** → **Vincular dispositivo**
-5. Escanea el código QR que aparece en la pantalla
-6. Una vez conectado, puedes:
-   - **Nuevo Mensaje**: Ingresa un número y envía un mensaje
-   - **Conversaciones**: Ve tus chats activos y responde mensajes recibidos
+2. Escanea el código QR con WhatsApp (Ajustes → WhatsApp Web)
+3. La sesión se persiste automáticamente
 
-### Funcionalidades del Chat
+### Código de Emparejamiento
 
-- **Nuevo Mensaje**: Envía mensajes a cualquier número de WhatsApp
-- **Conversaciones**: Lista de chats activos con vista previa del último mensaje
-- **Chat en tiempo real**: Recibe y responde mensajes al instante
-- **Historial**: Mantiene el historial de mensajes de la sesión actual
+Alternativamente, usa el código de emparejamiento:
 
-### Formato del número
+```bash
+curl -X POST http://localhost:3000/api/pairing \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "525556614579"}'
+```
 
-El número debe incluir el código de país seguido del número telefónico sin espacios ni símbolos:
+---
 
-- ✅ Correcto: `52
-1234567890` (México)
+## API Reference
+
+### Conexión
+
+#### GET /api/status
+
+Obtiene el estado actual de la conexión.
+
+**Respuesta:**
+
+```json
+{
+  "isConnected": true,
+  "status": "Conectado",
+  "hasQR": false,
+  "hasPairing": false,
+  "phone": "525556614579"
+}
+```
+
+---
+
+#### POST /api/pairing
+
+Solicita un código de emparejamiento para conectar sin QR.
+
+**Request Body:**
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| phone | string | Número de teléfono con código de país |
+
+**Ejemplo:**
+
+```bash
+curl -X POST http://localhost:3000/api/pairing \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "525556614579"}'
+```
+
+**Respuesta:**
+
+```json
+{
+  "success": true,
+  "code": "XXX-XXX-XXX",
+  "phone": "525556614579"
+}
+```
+
+---
+
+#### GET /api/check/:phone
+
+Verifica si un número tiene WhatsApp instalado.
+
+**Parámetros:**
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| phone | string | Número a verificar (sin simbolos) |
+
+**Ejemplo:**
+
+```bash
+curl http://localhost:3000/api/check/525556614579
+```
+
+**Respuesta - Existe:**
+
+```json
+{
+  "success": true,
+  "exists": true,
+  "jid": "525556614579@s.whatsapp.net",
+  "phone": "525556614579"
+}
+```
+
+**Respuesta - No Existe:**
+
+```json
+{
+  "success": true,
+  "exists": false,
+  "phone": "525556614579",
+  "message": "Este número no está registrado en WhatsApp"
+}
+```
+
+---
+
+### Mensajería
+
+#### POST /api/send
+
+Envía un mensaje de texto a un número de WhatsApp.
+
+**Request Body:**
+
+| Campo | Tipo | Requerido | Descripción |
+|-------|------|-----------|-------------|
+| phone | string | Sí | Número con código de país |
+| message | string | Sí | Contenido del mensaje |
+
+**Ejemplo:**
+
+```bash
+curl -X POST http://localhost:3000/api/send \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "525556614579", "message": "Hola desde la API"}'
+```
+
+**Respuesta:**
+
+```json
+{
+  "success": true,
+  "message": "Mensaje enviado correctamente",
+  "phone": "525556614579"
+}
+```
+
+**Ejemplo JavaScript:**
+
+```javascript
+const response = await fetch('/api/send', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    phone: '525556614579',
+    message: 'Hola desde la API'
+  })
+});
+const data = await response.json();
+```
+
+**Ejemplo Python:**
+
+```python
+import requests
+
+response = requests.post(
+    'http://localhost:3000/api/send',
+    json={
+        'phone': '525556614579',
+        'message': 'Hola desde la API'
+    }
+)
+print(response.json())
+```
+
+---
+
+#### POST /api/chats/:phone/send
+
+Envía un mensaje a un chat existente.
+
+**Parámetros URL:**
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| phone | string | Número de teléfono |
+
+**Request Body:**
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| message | string | Contenido del mensaje |
+
+**Ejemplo:**
+
+```bash
+curl -X POST http://localhost:3000/api/chats/525556614579/send \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Respuesta al chat"}'
+```
+
+---
+
+#### POST /api/chats/send-with-files
+
+Envía un mensaje con archivos multimedia.
+
+**Request Body (Multipart):**
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| phone | string | Número de teléfono |
+| message | string | Mensaje de texto (opcional) |
+| files | File[] | Archivos (máximo 10) |
+
+**Ejemplo cURL:**
+
+```bash
+curl -X POST http://localhost:3000/api/chats/send-with-files \
+  -F "phone=525556614579" \
+  -F "message=Descripción de la imagen" \
+  -F "files=@/path/to/image.jpg"
+```
+
+**Tipos de archivo soportados:**
+
+- Imágenes: `image/jpeg`, `image/png`, `image/webp`
+- Videos: `video/mp4`, `video/3gpp`
+- Audio: `audio/mp4`, `audio/ogg`
+- Documentos: cualquier tipo
+
+---
+
+### Conversaciones
+
+#### GET /api/chats
+
+Lista todas las conversaciones.
+
+**Ejemplo:**
+
+```bash
+curl http://localhost:3000/api/chats
+```
+
+**Respuesta:**
+
+```json
+[
+  {
+    "phone": "525556614579",
+    "name": "525556614579",
+    "lastMessage": {
+      "id": "abc123",
+      "text": "Último mensaje",
+      "timestamp": 1704067200000,
+      "isOutgoing": false
+    },
+    "messageCount": 15
+  }
+]
+```
+
+---
+
+#### GET /api/chats/:phone/messages
+
+Obtiene los mensajes de una conversación.
+
+**Parámetros:**
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| phone | string | Número de teléfono |
+
+**Ejemplo:**
+
+```bash
+curl http://localhost:3000/api/chats/525556614579/messages
+```
+
+**Respuesta:**
+
+```json
+{
+  "phone": "525556614579",
+  "name": "525556614579",
+  "messages": [
+    {
+      "id": "abc123",
+      "text": "Hola",
+      "timestamp": 1704067200000,
+      "isOutgoing": false,
+      "mediaType": null,
+      "mediaThumbnail": null,
+      "mediaMimeType": null,
+      "mediaFileName": null,
+      "mediaUrl": null,
+      "quotedMsg": null
+    }
+  ]
+}
+```
+
+---
+
+### Medios
+
+#### POST /api/download-media
+
+Descarga un archivo multimedia.
+
+**Request Body:**
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| messageId | string | ID del mensaje con medios |
+
+**Ejemplo:**
+
+```bash
+curl -X POST http://localhost:3000/api/download-media \
+  -H "Content-Type: application/json" \
+  -d '{"messageId": "abc123"}' \
+  --output archivo_descargado.jpg
+```
+
+**Respuesta:** Binario del archivo
+
+---
+
+## WebSockets
+
+Conecta mediante Socket.io para recibir eventos en tiempo real.
+
+### Conexión
+
+```javascript
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:3000');
+```
+
+---
+
+### Eventos del Servidor
+
+#### status
+
+Estado de la conexión.
+
+```javascript
+socket.on('status', (status) => {
+  console.log('Estado:', status);
+  // Valores: "Desconectado", "Esperando código...", "Esperando emparejamiento...", "Conectado"
+});
+```
+
+---
+
+#### ready
+
+WhatsApp conectado exitosamente.
+
+```javascript
+socket.on('ready', () => {
+  console.log('✅ WhatsApp conectado');
+});
+```
+
+---
+
+#### disconnected
+
+Conexión perdida.
+
+```javascript
+socket.on('disconnected', () => {
+  console.log('❌ WhatsApp desconectado');
+});
+```
+
+---
+
+#### pairing_code
+
+Código de emparejamiento generado.
+
+```javascript
+socket.on('pairing_code', ({ code, phone }) => {
+  console.log(`Código: ${code} para ${phone}`);
+});
+```
+
+---
+
+#### chats_loaded
+
+Chats cargados desde WhatsApp.
+
+```javascript
+socket.on('chats_loaded', ({ count }) => {
+  console.log(`Chats cargados: ${count}`);
+});
+```
+
+---
+
+#### new_message
+
+Nuevo mensaje recibido o enviado.
+
+```javascript
+socket.on('new_message', ({ phone, message, chat }) => {
+  console.log(`Mensaje de ${phone}:`, message.text);
+});
+```
+
+**Estructura del mensaje:**
+
+```json
+{
+  "phone": "525556614579",
+  "message": {
+    "id": "abc123",
+    "text": "Contenido del mensaje",
+    "timestamp": 1704067200000,
+    "isOutgoing": false,
+    "mediaType": "image",
+    "mediaThumbnail": "base64...",
+    "mediaMimeType": "image/jpeg",
+    "mediaFileName": "image.jpg",
+    "mediaUrl": "https://...",
+    "mediaKey": "...",
+    "mediaDirectPath": "/file/...",
+    "mediaFileLength": 12345,
+    "quotedMsg": {
+      "id": "reply123",
+      "text": "Mensaje al que responde",
+      "sender": "525556614579"
+    }
+  },
+  "chat": { ... }
+}
+```
+
+---
+
+## Tipos de Mensajes
+
+### Tipos de Media
+
+| Valor | Descripción |
+|-------|-------------|
+| `image` | Imagen con caption opcional |
+| `video` | Video con caption opcional |
+| `audio` | Audio (nota de voz) |
+| `document` | Documento o archivo |
+| `sticker` | Sticker |
+
+### Estados de Mensaje
+
+| Estado | Descripción |
+|--------|-------------|
+| `PENDING` | Pendiente de envío |
+| `SERVER_ACK` | Enviado al servidor |
+| `DELIVERY_ACK` | Entregado al destinatario |
+| `READ` | Leído por el destinatario |
+| `ERROR` | Error en el envío |
+
+---
+
+## Códigos de Error
+
+### Códigos HTTP
+
+| Código | Descripción |
+|--------|-------------|
+| 200 | Éxito |
+| 400 | Solicitud inválida |
+| 404 | Recurso no encontrado |
+| 500 | Error del servidor |
+
+### Errores de la API
+
+| Error | Descripción |
+|-------|-------------|
+| `WhatsApp no está conectado` | Debe conectar primero |
+| `Número y mensaje son requeridos` | Faltan campos obligatorios |
+| `Número inválido` | Formato de teléfono incorrecto |
+| `El mensaje no tiene medios` | El mensaje no contiene archivos |
+| `Mensaje no encontrado` | ID de mensaje inválido |
+| `Número no registrado en WhatsApp` | El destinatario no tiene WhatsApp |
+
+---
+
+## Formatos
+
+### Formato del Teléfono
+
+El número debe incluir el código de país sin espacios ni símbolos:
+
+- ✅ Correcto: `525556614579` (México)
 - ✅ Correcto: `34600123456` (España)
-- ❌ Incorrecto: `+52 123 456 7890`
-- ❌ Incorrecto: `123-456-7890`
+- ❌ Incorrecto: `+52 55 5661 4579`
+- ❌ Incorrecto: `55-5661-4579`
 
-## Estructura del proyecto
+### Timestamps
+
+Todos los timestamps están en milisegundos Unix:
+
+```javascript
+// JavaScript
+new Date(message.timestamp).toISOString()
+
+# Python
+datetime.fromtimestamp(message['timestamp'] / 1000)
+```
+
+---
+
+## Estructura del Proyecto
 
 ```
-├── server.js          # Servidor Express y lógica de WhatsApp
+├── server.js          # Servidor Express y lógica de Baileys
 ├── public/
-│   └── index.html     # Interfaz de usuario
-├── .wwebjs_auth/      # Sesión de autenticación (se crea automáticamente)
+│   └── index.html     # Interfaz web
+├── auth/              # Sesión de autenticación
+├── data/
+│   └── chats.json     # Chats persistidos
+├── uploads/           # Archivos subidos
 └── package.json
 ```
 
-## Notas importantes
+---
 
-- **Primera ejecución**: La primera vez que ejecutes la aplicación, descargará automáticamente Chromium (necesario para puppeteer)
-- **Sesión persistente**: Una vez que escanees el QR, la sesión se guarda localmente. No necesitarás escanear nuevamente al reiniciar la aplicación
-- **Desconexión**: Si cierras sesión desde tu teléfono, deberás escanear el QR nuevamente
-- **No oficial**: Esta aplicación usa `whatsapp-web.js`, una librería no oficial. Usa con precaución y nunca para spam
+## Tecnologías
 
-## Solución de problemas
-
-### Error: "Failed to launch browser"
-
-Asegúrate de tener instaladas las dependencias de Chromium:
-
-```bash
-# Ubuntu/Debian
-sudo apt-get install -y chromium-browser
-
-# Windows
-# Asegúrate de tener Chrome instalado
-```
-
-### La sesión no persiste
-
-Elimina la carpeta `.wwebjs_auth` y vuelve a escanear el QR:
-
-```bash
-rm -rf .wwebjs_auth
-```
-
-### Error al enviar mensaje
-
-- Verifica que el número tenga el formato correcto
-- Asegúrate de que el número esté registrado en WhatsApp
-- Verifica que tienes conexión a internet
-
-## Tecnologías utilizadas
-
-- [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js) - Librería para conectar con WhatsApp Web
+- [Baileys](https://github.com/WhiskeySockets/Baileys) - Cliente WhatsApp
 - [Express](https://expressjs.com/) - Framework web
-- [Socket.io](https://socket.io/) - Comunicación en tiempo real
-- [QRCode.js](https://github.com/davidshimjs/qrcodejs) - Generación de códigos QR
-- [Puppeteer](https://pptr.dev/) - Control de navegador para WhatsApp Web
+- [Socket.io](https://socket.io/) - WebSockets
+- [Multer](https://github.com/expressjs/multer) - Upload de archivos
+
+---
+
+## Limitaciones
+
+- Esta aplicación no está afiliada con WhatsApp Inc.
+- No usar para spam o mensajes no solicitados
+- Usar bajo responsabilidad propia
+
+---
 
 ## Licencia
 
 MIT
-
-## Disclaimer
-
-Este proyecto no está afiliado con WhatsApp Inc. Usa esta aplicación bajo tu propia responsabilidad y siempre cumpliendo con los términos de servicio de WhatsApp.
